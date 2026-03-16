@@ -1,0 +1,2 @@
+/usr/bin/ar qc libwlr_protocol.a CMakeFiles/wlr_protocol.dir/wlr_protocol_autogen/mocs_compilation.cpp.o "CMakeFiles/wlr_protocol.dir/wlr-foreign-toplevel-protocol.c.o"
+/usr/bin/ranlib libwlr_protocol.a

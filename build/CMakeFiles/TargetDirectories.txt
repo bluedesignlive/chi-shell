@@ -1,0 +1,12 @@
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/wlr_protocol.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/chi-shell.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/edit_cache.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/rebuild_cache.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/list_install_components.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/install.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/install/local.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/install/strip.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/wlr_protocol_autogen_timestamp_deps.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/wlr_protocol_autogen.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/chi-shell_autogen_timestamp_deps.dir
+/home/lufuno/Documents/chi-shell/build/CMakeFiles/chi-shell_autogen.dir
