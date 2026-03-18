@@ -16,7 +16,10 @@ Item {
                                || popupsOpen || revealLock
     property bool revealLock: false
 
-    onPopupsOpenChanged: updateInputRegion()
+    onPopupsOpenChanged: {
+        shell.taskbarPopupActive = popupsOpen
+        updateInputRegion()
+    }
     Component.onCompleted: updateInputRegion()
     onWidthChanged: updateInputRegion()
 
@@ -180,19 +183,4 @@ Item {
         onShowOverview: wayfireIPC.toggleScale()
     }
 
-    Connections {
-        target: appCtx
-        function onVisibleChanged() {
-            shell.taskbarPopupActive = appCtx.visible
-            root.updateInputRegion()
-        }
-    }
-    Connections {
-        target: taskbarCtx
-        function onVisibleChanged() { root.updateInputRegion() }
-    }
-    Connections {
-        target: windowPreview
-        function onVisibleChanged() { root.updateInputRegion() }
-    }
 }

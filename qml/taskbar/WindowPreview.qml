@@ -85,7 +85,10 @@ Item {
     }
 
     function scheduleShow(appId, gx) {
-        if (_open && _appId === appId) return
+        if (_open && _appId === appId) {
+            cancelHide()
+            return
+        }
         previewDelay.pendingAppId = appId
         previewDelay.pendingX = gx
         previewDelay.restart()
@@ -103,9 +106,12 @@ Item {
 
     function cancelHide() { hideDelay.stop() }
 
-    // Dismiss layer
+    // Dismiss layer — covers only popup zone above the bar
     MouseArea {
-        anchors.fill: parent; z: 0
+        x: 0; y: 0
+        width: parent.width
+        height: preview.popupH
+        z: 0
         onClicked: preview.hide()
     }
 
@@ -126,12 +132,14 @@ Item {
         Behavior on scale   { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
         Behavior on opacity { NumberAnimation { duration: 150 } }
 
-        // Block dismiss
-        MouseArea {
-            anchors.fill: parent; z: 0
-            hoverEnabled: true
-            onContainsMouseChanged: {
-                if (containsMouse) preview.cancelHide()
+        // Block clicks from reaching dismiss layer
+        MouseArea { anchors.fill: parent; z: 0 }
+
+        // Robust hover — HoverHandler is NOT stolen by child MouseAreas
+        HoverHandler {
+            id: cardHover
+            onHoveredChanged: {
+                if (hovered) preview.cancelHide()
                 else preview.scheduleHide()
             }
         }

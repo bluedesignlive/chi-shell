@@ -202,8 +202,6 @@ Item {
             // Left click
             if (!delegate.isRunning) {
                 taskbarModel.launch(delegate.index)
-            } else if (delegate.windowCount > 1) {
-                wayfireIPC.activateScaleForApp(delegate.appId)
             } else {
                 taskbarModel.toggleMinimize(delegate.index)
             }
