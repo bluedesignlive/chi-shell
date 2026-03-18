@@ -6,7 +6,9 @@
 #include "SystemStatus.h"
 #include "DesktopEntryModel.h"
 #include "PinnedAppsModel.h"
+#include "GroupedWindowsModel.h"
 #include "XdgIconProvider.h"
+#include "WindowThumbnailProvider.h"
 
 #include <QGuiApplication>
 #include <QQmlContext>
@@ -47,6 +49,7 @@ bool ShellManager::initialize()
         QIcon::setThemeName("Adwaita");
     QIcon::setFallbackThemeName("hicolor");
 
+    // ── Wayfire IPC ──────────────────────────────────────
     m_wayfireIPC = new WayfireIPC(this);
     if (m_wayfireIPC->connectToWayfire()) {
         QJsonArray methods = m_wayfireIPC->listMethods();
@@ -54,35 +57,44 @@ bool ShellManager::initialize()
             qDebug() << "WayfireIPC:" << methods.size() << "methods available";
     }
 
+    // ── Window tracker ───────────────────────────────────
     m_windowTracker = new WindowTracker(this);
     if (!m_windowTracker->init())
         qWarning() << "ShellManager: WindowTracker failed to init.";
 
+    // ── Notifications ────────────────────────────────────
     m_notificationServer = new NotificationServer(this);
     m_notificationServer->registerOnBus();
 
+    // ── System status ────────────────────────────────────
     m_systemStatus = new SystemStatus(this);
 
+    // ── Desktop entries ──────────────────────────────────
     m_desktopEntries = new DesktopEntryModel(this);
     m_appFilter = new AppFilterModel(this);
     m_appFilter->setSourceModel(m_desktopEntries);
 
+    // ── Pinned apps ──────────────────────────────────────
     m_pinnedApps = new PinnedAppsModel(this);
     m_pinnedApps->setDesktopEntryModel(m_desktopEntries);
     m_pinnedApps->setWindowTracker(m_windowTracker);
 
+    // ── Unpinned windows (legacy, kept for compatibility) ─
     m_unpinnedWindows = new UnpinnedWindowsModel(this);
     m_unpinnedWindows->setSourceModel(m_windowTracker);
     m_unpinnedWindows->setPinnedModel(m_pinnedApps);
 
-    // UnpinnedWindowsModel needs to re-filter when windows change.
-    // All connections go through scheduleRefresh → coalesced into one update.
     connect(m_windowTracker, &QAbstractItemModel::rowsInserted,
             m_unpinnedWindows, &UnpinnedWindowsModel::scheduleRefresh);
     connect(m_windowTracker, &QAbstractItemModel::rowsRemoved,
             m_unpinnedWindows, &UnpinnedWindowsModel::scheduleRefresh);
     connect(m_windowTracker, &QAbstractItemModel::dataChanged,
             m_unpinnedWindows, &UnpinnedWindowsModel::scheduleRefresh);
+
+    // ── Grouped windows (new, for taskbar) ───────────────
+    m_groupedWindows = new GroupedWindowsModel(this);
+    m_groupedWindows->setWindowTracker(m_windowTracker);
+    m_groupedWindows->setPinnedModel(m_pinnedApps);
 
     // ── Desktop file watcher ─────────────────────────────
     auto *watcher = new QFileSystemWatcher(this);
@@ -97,7 +109,7 @@ bool ShellManager::initialize()
         if (QDir(dir).exists())
             watcher->addPath(dir);
     }
-    // Debounce: many files change at once during install
+
     auto *refreshTimer = new QTimer(this);
     refreshTimer->setSingleShot(true);
     refreshTimer->setInterval(1000);
@@ -132,6 +144,7 @@ void ShellManager::registerContextProperties()
     ctx->setContextProperty("windowTracker",    m_windowTracker);
     ctx->setContextProperty("pinnedApps",       m_pinnedApps);
     ctx->setContextProperty("unpinnedWindows",  m_unpinnedWindows);
+    ctx->setContextProperty("groupedWindows",   m_groupedWindows);
     ctx->setContextProperty("notifications",    m_notificationServer);
     ctx->setContextProperty("systemStatus",     m_systemStatus);
     ctx->setContextProperty("appEntries",       m_desktopEntries);
@@ -169,6 +182,7 @@ void ShellManager::createSurfaces()
     using A = LayerShellQt::Window::Anchor;
     using Anchors = LayerShellQt::Window::Anchors;
 
+    // ── Desktop background ───────────────────────────────
     m_desktop = new ShellSurface(m_engine, this);
     m_desktop->setLayer(ShellSurface::Background);
     m_desktop->setAnchors(Anchors(A::AnchorTop | A::AnchorBottom | A::AnchorLeft | A::AnchorRight));
@@ -178,6 +192,7 @@ void ShellManager::createSurfaces()
     m_desktop->setSource(qmlPath("Desktop.qml"));
     m_desktop->show();
 
+    // ── Status bar (top) ─────────────────────────────────
     m_statusBar = new ShellSurface(m_engine, this);
     m_statusBar->setLayer(ShellSurface::Top);
     m_statusBar->setAnchors(Anchors(A::AnchorTop | A::AnchorLeft | A::AnchorRight));
@@ -188,6 +203,7 @@ void ShellManager::createSurfaces()
     m_statusBar->setSource(qmlPath("StatusBar.qml"));
     m_statusBar->show();
 
+    // ── Taskbar (bottom) ─────────────────────────────────
     m_taskbar = new ShellSurface(m_engine, this);
     m_taskbar->setLayer(ShellSurface::Top);
     m_taskbar->setAnchors(Anchors(A::AnchorBottom | A::AnchorLeft | A::AnchorRight));
@@ -199,6 +215,7 @@ void ShellManager::createSurfaces()
     m_taskbar->show();
     m_taskbar->setInputRegion(QRect(0, POPUP_H, m_screenWidth, BAR_H));
 
+    // ── Quick settings overlay ───────────────────────────
     m_quickSettings = new ShellSurface(m_engine, this);
     m_quickSettings->setLayer(ShellSurface::Overlay);
     m_quickSettings->setAnchors(Anchors(A::AnchorTop | A::AnchorBottom | A::AnchorLeft | A::AnchorRight));
@@ -208,6 +225,7 @@ void ShellManager::createSurfaces()
     m_quickSettings->setScope("chi-quicksettings");
     m_quickSettings->setSource(qmlPath("QuickSettings.qml"));
 
+    // ── Notification center overlay ──────────────────────
     m_notificationCenter = new ShellSurface(m_engine, this);
     m_notificationCenter->setLayer(ShellSurface::Overlay);
     m_notificationCenter->setAnchors(Anchors(A::AnchorTop | A::AnchorBottom | A::AnchorLeft | A::AnchorRight));
@@ -216,6 +234,7 @@ void ShellManager::createSurfaces()
     m_notificationCenter->setScope("chi-notifications");
     m_notificationCenter->setSource(qmlPath("NotificationCenter.qml"));
 
+    // ── App launcher overlay ─────────────────────────────
     m_appLauncher = new ShellSurface(m_engine, this);
     m_appLauncher->setLayer(ShellSurface::Overlay);
     m_appLauncher->setAnchors(Anchors(A::AnchorTop | A::AnchorBottom | A::AnchorLeft | A::AnchorRight));
@@ -229,8 +248,13 @@ void ShellManager::setQuickSettingsOpen(bool open)
 {
     if (m_quickSettingsOpen == open) return;
     m_quickSettingsOpen = open;
-    if (open) { setNotificationCenterOpen(false); setAppLauncherOpen(false); m_quickSettings->show(); }
-    else m_quickSettings->hide();
+    if (open) {
+        setNotificationCenterOpen(false);
+        setAppLauncherOpen(false);
+        m_quickSettings->show();
+    } else {
+        m_quickSettings->hide();
+    }
     emit quickSettingsOpenChanged();
 }
 
@@ -238,8 +262,13 @@ void ShellManager::setNotificationCenterOpen(bool open)
 {
     if (m_notificationCenterOpen == open) return;
     m_notificationCenterOpen = open;
-    if (open) { setQuickSettingsOpen(false); setAppLauncherOpen(false); m_notificationCenter->show(); }
-    else m_notificationCenter->hide();
+    if (open) {
+        setQuickSettingsOpen(false);
+        setAppLauncherOpen(false);
+        m_notificationCenter->show();
+    } else {
+        m_notificationCenter->hide();
+    }
     emit notificationCenterOpenChanged();
 }
 
@@ -247,7 +276,12 @@ void ShellManager::setAppLauncherOpen(bool open)
 {
     if (m_appLauncherOpen == open) return;
     m_appLauncherOpen = open;
-    if (open) { setQuickSettingsOpen(false); setNotificationCenterOpen(false); m_appLauncher->show(); }
-    else m_appLauncher->hide();
+    if (open) {
+        setQuickSettingsOpen(false);
+        setNotificationCenterOpen(false);
+        m_appLauncher->show();
+    } else {
+        m_appLauncher->hide();
+    }
     emit appLauncherOpenChanged();
 }

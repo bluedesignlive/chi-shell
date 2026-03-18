@@ -32,6 +32,7 @@ public:
     Q_INVOKABLE bool activateScaleForApp(const QString &appId,
                                           bool allWorkspaces = false);
     Q_INVOKABLE bool showDesktop();
+    Q_INVOKABLE void captureViewThumbnails(const QString &appId);
 
     // diagnostic
     Q_INVOKABLE QJsonArray listMethods();

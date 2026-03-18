@@ -53,8 +53,10 @@ public:
 
     QQuickView *view() const { return m_view; }
 
-    void setInputRegion(const QRect &rect);
-    void clearInputRegion();
+    // Input region management for layer-shell popups
+    Q_INVOKABLE void setInputRegion(const QRect &rect);
+    Q_INVOKABLE void setFullInputRegion();
+    Q_INVOKABLE void clearInputRegion();
 
 signals:
     void visibleChanged();

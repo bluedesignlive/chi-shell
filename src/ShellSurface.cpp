@@ -130,9 +130,20 @@ void ShellSurface::setInputRegion(const QRect &rect)
     flushWayland();
 }
 
+void ShellSurface::setFullInputRegion()
+{
+    if (!m_view) return;
+    // Set mask to FULL window size — this means entire surface receives input
+    m_view->setMask(QRegion(0, 0, m_view->width(), m_view->height()));
+    flushWayland();
+}
+
 void ShellSurface::clearInputRegion()
 {
     if (!m_view) return;
-    m_view->setMask(QRegion());
+    // IMPORTANT: QRegion() = empty region = NO input at all!
+    // To CLEAR the mask (accept all input), we must set a region covering
+    // the entire window, NOT an empty QRegion.
+    m_view->setMask(QRegion(0, 0, m_view->width(), m_view->height()));
     flushWayland();
 }

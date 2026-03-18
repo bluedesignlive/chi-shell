@@ -181,7 +181,8 @@ Item {
                                 ctxMenu.showAt(pos.x, pos.y, index,
                                     model.name || "", model.iconName || "", model.entryId || "")
                             } else {
-                                appFilter.launch(index); shell.appLauncherOpen = false
+                                appFilter.launch(index)
+                                shell.appLauncherOpen = false
                             }
                         }
                     }
@@ -189,9 +190,6 @@ Item {
             }
         }
 
-        // ═════════════════════════════════════════════════
-        // CONTEXT MENU — pin state updates reactively
-        // ═════════════════════════════════════════════════
         Item {
             id: ctxMenu; visible: false; z: 200; anchors.fill: parent
 
@@ -203,7 +201,6 @@ Item {
             property real   _cy: 0
             property bool   _above: false
 
-            // Force re-eval when pins change
             property int _pinVer: 0
             Connections {
                 target: pinnedApps
@@ -218,7 +215,7 @@ Item {
             function showAt(cx, cy, idx, name, icon, appId) {
                 targetIdx = idx; targetName = name; targetIcon = icon; targetAppId = appId
                 _cx = cx
-                var cardH = 2 * 48 + 16  // always 2 items
+                var cardH = 3 * 48 + 16
                 _above = (cy + cardH + 16) > content.height
                 _cy = _above ? (cy - cardH - 12) : (cy + 4)
                 visible = true
@@ -227,7 +224,6 @@ Item {
 
             MouseArea { anchors.fill: parent; onClicked: ctxMenu.close() }
 
-            // nose
             Rectangle {
                 width: 12; height: 12; rotation: 45; z: 1
                 color: ChiTheme.colors.surfaceContainerHighest
@@ -246,13 +242,42 @@ Item {
                 scale: ctxMenu.visible ? 1.0 : 0.92
                 opacity: ctxMenu.visible ? 1.0 : 0.0
                 transformOrigin: ctxMenu._above ? Item.Bottom : Item.Top
-                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                Behavior on scale   { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                 Behavior on opacity { NumberAnimation { duration: 100 } }
 
                 Column {
                     id: ctxCol; x: 0; y: 8; width: parent.width; spacing: 0
 
-                    // Pin / Unpin
+                    Rectangle {
+                        width: parent.width; height: 48
+                        color: _laH.containsMouse ? Qt.rgba(1,1,1,0.08) : "transparent"
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left; anchors.leftMargin: 16; spacing: 12
+                            Rectangle {
+                                width: 28; height: 28; radius: 14
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: ChiTheme.colors.surfaceContainer
+                                Icon { anchors.centerIn: parent; size: 16; source: "open_in_new"
+                                       color: ChiTheme.colors.onSurfaceVariant }
+                            }
+                            Text {
+                                text: "Open"; anchors.verticalCenter: parent.verticalCenter
+                                color: ChiTheme.colors.onSurface
+                                font.pixelSize: 14; font.weight: 500; font.family: ChiTheme.fontFamily
+                            }
+                        }
+                        MouseArea {
+                            id: _laH; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                appFilter.launch(ctxMenu.targetIdx)
+                                shell.appLauncherOpen = false
+                                ctxMenu.close()
+                            }
+                        }
+                    }
+
                     Rectangle {
                         width: parent.width; height: 48
                         color: _puH.containsMouse ? Qt.rgba(1,1,1,0.08) : "transparent"
@@ -263,11 +288,9 @@ Item {
                                 width: 28; height: 28; radius: 14
                                 anchors.verticalCenter: parent.verticalCenter
                                 color: ChiTheme.colors.surfaceContainer
-                                Icon {
-                                    anchors.centerIn: parent; size: 16
-                                    source: ctxMenu._isPinned ? "keep_off" : "push_pin"
-                                    color: ChiTheme.colors.onSurfaceVariant
-                                }
+                                Icon { anchors.centerIn: parent; size: 16
+                                       source: ctxMenu._isPinned ? "keep_off" : "push_pin"
+                                       color: ChiTheme.colors.onSurfaceVariant }
                             }
                             Text {
                                 text: ctxMenu._isPinned ? "Unpin from Taskbar" : "Pin to Taskbar"
@@ -287,7 +310,6 @@ Item {
                         }
                     }
 
-                    // App info
                     Rectangle {
                         width: parent.width; height: 48
                         color: _aiH.containsMouse ? Qt.rgba(1,1,1,0.08) : "transparent"
@@ -298,13 +320,11 @@ Item {
                                 width: 28; height: 28; radius: 14
                                 anchors.verticalCenter: parent.verticalCenter
                                 color: ChiTheme.colors.surfaceContainer
-                                Icon {
-                                    anchors.centerIn: parent; source: "info"; size: 16
-                                    color: ChiTheme.colors.onSurfaceVariant
-                                }
+                                Icon { anchors.centerIn: parent; source: "info"; size: 16
+                                       color: ChiTheme.colors.onSurfaceVariant }
                             }
                             Text {
-                                text: "App info"; anchors.verticalCenter: parent.verticalCenter
+                                text: "App Info"; anchors.verticalCenter: parent.verticalCenter
                                 color: ChiTheme.colors.onSurface
                                 font.pixelSize: 14; font.weight: 500; font.family: ChiTheme.fontFamily
                             }

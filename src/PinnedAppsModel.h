@@ -16,8 +16,9 @@ struct PinnedApp
     QString iconName;
     QString desktopFile;
     QString exec;
-    bool isRunning = false;
-    int windowCount = 0;
+    bool isRunning   = false;
+    bool isActivated = false;
+    int  windowCount = 0;
 };
 
 class PinnedAppsModel : public QAbstractListModel
@@ -33,6 +34,7 @@ public:
         DesktopFileRole,
         ExecRole,
         IsRunningRole,
+        IsActivatedRole,
         WindowCountRole
     };
 
@@ -50,7 +52,9 @@ public:
     Q_INVOKABLE void unpin(const QString &appId);
     Q_INVOKABLE void reorder(int from, int to);
     Q_INVOKABLE void launch(int index);
+    Q_INVOKABLE void launchNew(const QString &appId);
     Q_INVOKABLE bool isPinned(const QString &appId) const;
+    Q_INVOKABLE QString execForApp(const QString &appId) const;
 
     QSet<QString> pinnedAppIds() const;
 
@@ -69,11 +73,11 @@ private:
     QString configDir() const;
     QString configFilePath() const;
 
-    QVector<PinnedApp> m_pinned;
-    WindowTracker *m_windowTracker = nullptr;
-    DesktopEntryModel *m_desktopEntries = nullptr;
-    QTimer m_saveTimer;
-    QTimer m_syncTimer;
+    QVector<PinnedApp>  m_pinned;
+    WindowTracker      *m_windowTracker  = nullptr;
+    DesktopEntryModel  *m_desktopEntries = nullptr;
+    QTimer              m_saveTimer;
+    QTimer              m_syncTimer;
 };
 
 class UnpinnedWindowsModel : public QSortFilterProxyModel
@@ -90,6 +94,7 @@ public:
     Q_INVOKABLE void activate(int proxyIndex);
     Q_INVOKABLE void close(int proxyIndex);
     Q_INVOKABLE void toggleMinimize(int proxyIndex);
+    Q_INVOKABLE int  sourceIndex(int proxyIndex) const;
 
 public slots:
     void refresh();

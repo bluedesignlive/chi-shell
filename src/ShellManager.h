@@ -13,6 +13,7 @@ class DesktopEntryModel;
 class AppFilterModel;
 class PinnedAppsModel;
 class UnpinnedWindowsModel;
+class GroupedWindowsModel;
 
 class ShellManager : public QObject
 {
@@ -57,27 +58,28 @@ private:
 
     QQmlEngine *m_engine = nullptr;
 
-    WayfireIPC            *m_wayfireIPC = nullptr;
-    WindowTracker         *m_windowTracker = nullptr;
+    WayfireIPC            *m_wayfireIPC         = nullptr;
+    WindowTracker         *m_windowTracker      = nullptr;
     NotificationServer    *m_notificationServer = nullptr;
-    SystemStatus          *m_systemStatus = nullptr;
-    DesktopEntryModel     *m_desktopEntries = nullptr;
-    AppFilterModel        *m_appFilter = nullptr;
-    PinnedAppsModel       *m_pinnedApps = nullptr;
-    UnpinnedWindowsModel  *m_unpinnedWindows = nullptr;
+    SystemStatus          *m_systemStatus       = nullptr;
+    DesktopEntryModel     *m_desktopEntries     = nullptr;
+    AppFilterModel        *m_appFilter          = nullptr;
+    PinnedAppsModel       *m_pinnedApps         = nullptr;
+    UnpinnedWindowsModel  *m_unpinnedWindows    = nullptr;
+    GroupedWindowsModel   *m_groupedWindows     = nullptr;
 
-    ShellSurface *m_desktop = nullptr;
-    ShellSurface *m_taskbar = nullptr;
-    ShellSurface *m_statusBar = nullptr;
-    ShellSurface *m_quickSettings = nullptr;
+    ShellSurface *m_desktop            = nullptr;
+    ShellSurface *m_taskbar            = nullptr;
+    ShellSurface *m_statusBar          = nullptr;
+    ShellSurface *m_quickSettings      = nullptr;
     ShellSurface *m_notificationCenter = nullptr;
-    ShellSurface *m_appLauncher = nullptr;
+    ShellSurface *m_appLauncher        = nullptr;
 
-    bool m_quickSettingsOpen = false;
+    bool m_quickSettingsOpen      = false;
     bool m_notificationCenterOpen = false;
-    bool m_appLauncherOpen = false;
-    bool m_taskbarPopupActive = false;
-    int m_screenWidth = 1920;
+    bool m_appLauncherOpen        = false;
+    bool m_taskbarPopupActive     = false;
+    int  m_screenWidth            = 1920;
 };
 
 #endif // SHELLMANAGER_H

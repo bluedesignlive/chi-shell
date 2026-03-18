@@ -9,8 +9,6 @@ project(chi-shell
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# silence private module warning
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
 
 # ── Qt ──────────────────────────────────────────────────
@@ -58,6 +56,7 @@ add_executable(chi-shell
     src/WayfireIPC.cpp
     src/DesktopEntryModel.cpp
     src/PinnedAppsModel.cpp
+    src/GroupedWindowsModel.cpp
 )
 
 target_include_directories(chi-shell PRIVATE

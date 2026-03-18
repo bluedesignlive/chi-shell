@@ -1,0 +1,8 @@
+# Hashes of file build rules.
+746baf4fc9e99095603480907418a159 CMakeFiles/chi-shell_autogen
+746baf4fc9e99095603480907418a159 CMakeFiles/wlr_protocol_autogen
+746baf4fc9e99095603480907418a159 CMakeFiles/wlr_protocol_autogen_timestamp_deps
+6dfadaf8919f280bf0bc40f8e7f44f0c chi-shell_autogen/timestamp
+ec4b9cb04312112b29de3528680dbfc6 wlr-foreign-toplevel-protocol.c
+86668c949d138458e181d5ec8dc26b46 wlr-foreign-toplevel-protocol.h
+98a55bd0fc72972cd7934900a430e834 wlr_protocol_autogen/timestamp

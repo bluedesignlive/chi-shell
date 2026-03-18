@@ -1,3 +1,6 @@
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QProcess>
 #include "WayfireIPC.h"
 
 #include <QJsonDocument>
@@ -199,4 +202,107 @@ bool WayfireIPC::showDesktop()
 QJsonArray WayfireIPC::listMethods()
 {
     return call("list-methods").value("methods").toArray();
+}
+
+
+
+void WayfireIPC::captureViewThumbnails(const QString &appId)
+{
+    // Direct Wayfire IPC socket call to get view geometries
+    // Protocol: 4-byte LE length prefix + JSON body
+    QString socketPath = qEnvironmentVariable("WAYFIRE_SOCKET");
+    if (socketPath.isEmpty()) {
+        qDebug() << "captureViewThumbnails: WAYFIRE_SOCKET not set";
+        return;
+    }
+
+    // Connect to Wayfire IPC
+    int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return;
+
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socketPath.toUtf8().constData(), sizeof(addr.sun_path) - 1);
+
+    if (::connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        ::close(fd);
+        return;
+    }
+
+    // Build request
+    QJsonObject msg;
+    msg["method"] = QString("window-rules/list-views");
+    msg["data"] = QJsonObject();
+    QByteArray payload = QJsonDocument(msg).toJson(QJsonDocument::Compact);
+    uint32_t len = static_cast<uint32_t>(payload.size());
+
+    // Send: 4-byte length + JSON
+    ::write(fd, &len, 4);
+    ::write(fd, payload.constData(), payload.size());
+
+    // Read response: 4-byte length + JSON
+    uint32_t respLen = 0;
+    ssize_t n = ::read(fd, &respLen, 4);
+    if (n != 4 || respLen == 0 || respLen > 1024 * 1024) {
+        ::close(fd);
+        return;
+    }
+
+    QByteArray respData(respLen, '\0');
+    ssize_t totalRead = 0;
+    while (totalRead < (ssize_t)respLen) {
+        n = ::read(fd, respData.data() + totalRead, respLen - totalRead);
+        if (n <= 0) break;
+        totalRead += n;
+    }
+    ::close(fd);
+
+    if (totalRead < (ssize_t)respLen) return;
+
+    // Parse view list
+    QJsonDocument doc = QJsonDocument::fromJson(respData);
+    QJsonArray views;
+    if (doc.isArray())
+        views = doc.array();
+    else if (doc.isObject())
+        views = doc.object().value("result").toArray();
+
+    // Capture each matching view with grim
+    int idx = 0;
+    for (const auto &v : views) {
+        QJsonObject vo = v.toObject();
+        QString viewAppId = vo.value("app-id").toString();
+        if (viewAppId != appId) continue;
+
+        QJsonObject geo = vo.value("geometry").toObject();
+        int x = geo.value("x").toInt();
+        int y = geo.value("y").toInt();
+        int w = geo.value("width").toInt();
+        int h = geo.value("height").toInt();
+
+        if (w <= 0 || h <= 0) { idx++; continue; }
+
+        QString region = QString("%1,%2 %3x%4").arg(x).arg(y).arg(w).arg(h);
+        QString path = QString("/tmp/chi-thumb-%1-%2.png").arg(appId).arg(idx);
+
+        // Optional: get output name for multi-monitor
+        QString output = vo.value("output-name").toString();
+
+        QStringList args;
+        if (!output.isEmpty())
+            args << "-o" << output;
+        args << "-g" << region << "-t" << "png" << "-l" << "0" << "-s" << "0.5" << path;
+
+        QProcess *proc = new QProcess(this);
+        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                proc, &QProcess::deleteLater);
+        proc->start("grim", args);
+
+        idx++;
+    }
+
+    if (idx == 0) {
+        qDebug() << "captureViewThumbnails: no views found for" << appId;
+    }
 }
