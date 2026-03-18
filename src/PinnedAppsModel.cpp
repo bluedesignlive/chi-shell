@@ -11,6 +11,7 @@
 #include <QStandardPaths>
 #include <QRegularExpression>
 #include <QDebug>
+#include <QTextStream>
 
 PinnedAppsModel::PinnedAppsModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -348,6 +349,131 @@ void PinnedAppsModel::save() const
     QFile file(configFilePath());
     if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))
         file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+}
+
+// ──────────────────────────────────────────────────────────────
+// Desktop Actions (freedesktop.org Desktop Entry spec)
+// ──────────────────────────────────────────────────────────────
+
+QString PinnedAppsModel::findDesktopFilePath(const QString &appId) const
+{
+    // Check pinned apps first (already resolved)
+    for (const auto &p : m_pinned)
+        if (p.appId == appId && !p.desktopFile.isEmpty())
+            return p.desktopFile;
+
+    static const QStringList dirs = {
+        "/usr/share/applications",
+        "/usr/local/share/applications",
+        QDir::homePath() + "/.local/share/applications",
+        "/var/lib/flatpak/exports/share/applications",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/applications"
+    };
+
+    // Exact match: appId.desktop
+    for (const auto &dir : dirs) {
+        QString path = dir + "/" + appId + ".desktop";
+        if (QFile::exists(path))
+            return path;
+    }
+
+    // Fuzzy match
+    for (const auto &dir : dirs) {
+        QDir d(dir);
+        if (!d.exists()) continue;
+        const auto files = d.entryList({"*.desktop"}, QDir::Files);
+        for (const auto &f : files) {
+            if (f.toLower().contains(appId.toLower()))
+                return d.filePath(f);
+        }
+    }
+
+    return {};
+}
+
+QVariantList PinnedAppsModel::desktopActionsForApp(const QString &appId) const
+{
+    QVariantList result;
+
+    QString path = findDesktopFilePath(appId);
+    if (path.isEmpty()) return result;
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return result;
+
+    QTextStream in(&file);
+    QStringList actionIds;
+    QString currentSection;
+    QString entryIcon;
+    QHash<QString, QVariantMap> actions;
+
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty() || line.startsWith('#'))
+            continue;
+
+        if (line.startsWith('[') && line.endsWith(']')) {
+            currentSection = line.mid(1, line.length() - 2);
+            continue;
+        }
+
+        int eq = line.indexOf('=');
+        if (eq < 0) continue;
+
+        QString key = line.left(eq).trimmed();
+        QString val = line.mid(eq + 1).trimmed();
+
+        // Skip localized keys like Name[de]=
+        if (key.contains('[')) continue;
+
+        if (currentSection == "Desktop Entry") {
+            if (key == "Actions")
+                actionIds = val.split(';', Qt::SkipEmptyParts);
+            else if (key == "Icon")
+                entryIcon = val;
+        } else if (currentSection.startsWith("Desktop Action ")) {
+            QString actionId = currentSection.mid(15);
+            if (!actions.contains(actionId))
+                actions[actionId] = QVariantMap();
+
+            if (key == "Name")
+                actions[actionId]["name"] = val;
+            else if (key == "Icon")
+                actions[actionId]["icon"] = val;
+            else if (key == "Exec")
+                actions[actionId]["exec"] = val;
+        }
+    }
+
+    // Build result in declaration order
+    for (const auto &id : actionIds) {
+        if (!actions.contains(id)) continue;
+        const auto &a = actions[id];
+        if (!a.contains("name") || !a.contains("exec")) continue;
+
+        QVariantMap entry;
+        entry["name"] = a["name"];
+        entry["exec"] = a["exec"];
+        entry["icon"] = a.value("icon", entryIcon);
+        result.append(entry);
+    }
+
+    return result;
+}
+
+void PinnedAppsModel::launchAction(const QString &exec)
+{
+    QString cmd = exec;
+    cmd.remove(QRegularExpression("%[fFuUdDnNickvm]"));
+    cmd = cmd.trimmed();
+    if (cmd.isEmpty()) return;
+
+    QStringList args = QProcess::splitCommand(cmd);
+    if (!args.isEmpty()) {
+        QString program = args.takeFirst();
+        QProcess::startDetached(program, args);
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════

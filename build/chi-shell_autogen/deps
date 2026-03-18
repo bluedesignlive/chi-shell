@@ -313,6 +313,7 @@ chi-shell_autogen/timestamp: \
 	/usr/include/qt6/QtCore/QList \
 	/usr/include/qt6/QtCore/QMargins \
 	/usr/include/qt6/QtCore/QObject \
+	/usr/include/qt6/QtCore/QProcess \
 	/usr/include/qt6/QtCore/QRect \
 	/usr/include/qt6/QtCore/QRectF \
 	/usr/include/qt6/QtCore/QSet \
@@ -418,6 +419,7 @@ chi-shell_autogen/timestamp: \
 	/usr/include/qt6/QtCore/qpair.h \
 	/usr/include/qt6/QtCore/qpoint.h \
 	/usr/include/qt6/QtCore/qpointer.h \
+	/usr/include/qt6/QtCore/qprocess.h \
 	/usr/include/qt6/QtCore/qprocessordetection.h \
 	/usr/include/qt6/QtCore/qrect.h \
 	/usr/include/qt6/QtCore/qrefcount.h \

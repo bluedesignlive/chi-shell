@@ -423,6 +423,7 @@ CMakeFiles/chi-shell.dir/chi-shell_autogen/mocs_compilation.cpp.o: \
  /usr/include/qt6/QtDBus/qdbusextratypes.h \
  /usr/include/qt6/QtDBus/qdbusconnection.h \
  /usr/include/qt6/QtDBus/qdbuspendingcall.h \
+ /usr/include/qt6/QtCore/QProcess /usr/include/qt6/QtCore/qprocess.h \
  /home/lufuno/Documents/chi-shell/build/chi-shell_autogen/UVLADIE3JM/moc_WayfireIPC.cpp \
  /home/lufuno/Documents/chi-shell/build/chi-shell_autogen/UVLADIE3JM/../../../src/WayfireIPC.h \
  /usr/include/qt6/QtCore/QJsonObject \

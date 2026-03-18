@@ -316,6 +316,7 @@ chi-shell_autogen/timestamp: /home/lufuno/Documents/chi-shell/CMakeLists.txt \
   /usr/include/qt6/QtCore/QList \
   /usr/include/qt6/QtCore/QMargins \
   /usr/include/qt6/QtCore/QObject \
+  /usr/include/qt6/QtCore/QProcess \
   /usr/include/qt6/QtCore/QRect \
   /usr/include/qt6/QtCore/QRectF \
   /usr/include/qt6/QtCore/QSet \
@@ -421,6 +422,7 @@ chi-shell_autogen/timestamp: /home/lufuno/Documents/chi-shell/CMakeLists.txt \
   /usr/include/qt6/QtCore/qpair.h \
   /usr/include/qt6/QtCore/qpoint.h \
   /usr/include/qt6/QtCore/qpointer.h \
+  /usr/include/qt6/QtCore/qprocess.h \
   /usr/include/qt6/QtCore/qprocessordetection.h \
   /usr/include/qt6/QtCore/qrect.h \
   /usr/include/qt6/QtCore/qrefcount.h \
@@ -1614,6 +1616,7 @@ CMakeFiles/chi-shell.dir/chi-shell_autogen/mocs_compilation.cpp.o: chi-shell_aut
   /usr/include/qt6/QtCore/QList \
   /usr/include/qt6/QtCore/QMargins \
   /usr/include/qt6/QtCore/QObject \
+  /usr/include/qt6/QtCore/QProcess \
   /usr/include/qt6/QtCore/QRect \
   /usr/include/qt6/QtCore/QRectF \
   /usr/include/qt6/QtCore/QSet \
@@ -1720,6 +1723,7 @@ CMakeFiles/chi-shell.dir/chi-shell_autogen/mocs_compilation.cpp.o: chi-shell_aut
   /usr/include/qt6/QtCore/qpair.h \
   /usr/include/qt6/QtCore/qpoint.h \
   /usr/include/qt6/QtCore/qpointer.h \
+  /usr/include/qt6/QtCore/qprocess.h \
   /usr/include/qt6/QtCore/qprocessordetection.h \
   /usr/include/qt6/QtCore/qrect.h \
   /usr/include/qt6/QtCore/qrefcount.h \
@@ -3622,6 +3626,7 @@ CMakeFiles/chi-shell.dir/src/PinnedAppsModel.cpp.o: /home/lufuno/Documents/chi-s
   /usr/include/qt6/QtCore/QSet \
   /usr/include/qt6/QtCore/QSortFilterProxyModel \
   /usr/include/qt6/QtCore/QStandardPaths \
+  /usr/include/qt6/QtCore/QTextStream \
   /usr/include/qt6/QtCore/QTimer \
   /usr/include/qt6/QtCore/QVariant \
   /usr/include/qt6/QtCore/q17memory.h \
@@ -4162,6 +4167,7 @@ CMakeFiles/chi-shell.dir/src/ShellManager.cpp.o: /home/lufuno/Documents/chi-shel
   /usr/include/qt6/QtCore/QMargins \
   /usr/include/qt6/QtCore/QMutex \
   /usr/include/qt6/QtCore/QObject \
+  /usr/include/qt6/QtCore/QProcess \
   /usr/include/qt6/QtCore/QRect \
   /usr/include/qt6/QtCore/QRectF \
   /usr/include/qt6/QtCore/QSet \
@@ -4274,6 +4280,7 @@ CMakeFiles/chi-shell.dir/src/ShellManager.cpp.o: /home/lufuno/Documents/chi-shel
   /usr/include/qt6/QtCore/qpair.h \
   /usr/include/qt6/QtCore/qpoint.h \
   /usr/include/qt6/QtCore/qpointer.h \
+  /usr/include/qt6/QtCore/qprocess.h \
   /usr/include/qt6/QtCore/qprocessordetection.h \
   /usr/include/qt6/QtCore/qrect.h \
   /usr/include/qt6/QtCore/qrefcount.h \
@@ -7214,8 +7221,6 @@ CMakeFiles/chi-shell.dir/chi-shell_autogen/mocs_compilation.cpp.o:
 
 /home/lufuno/Documents/chi-shell/src/WindowThumbnailProvider.h:
 
-/usr/include/qt6/QtCore/qprocess.h:
-
 /usr/include/qt6/QtCore/qfileinfo.h:
 
 /usr/include/qt6/QtCore/qfiledevice.h:
@@ -7225,10 +7230,6 @@ CMakeFiles/chi-shell.dir/chi-shell_autogen/mocs_compilation.cpp.o:
 /usr/include/qt6/QtCore/qdir.h:
 
 /usr/include/qt6/QtCore/QString:
-
-/usr/lib64/libk5crypto.so.3:
-
-/usr/include/qt6/QtCore/QProcess:
 
 /usr/include/qt6/QtCore/QFile:
 
@@ -7572,6 +7573,14 @@ chi-shell_autogen/UVLADIE3JM/moc_DesktopEntryModel.cpp:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtwebenginequickpluginTargets.cmake:
 
+/usr/share/cmake/Modules/FindPackageMessage.cmake:
+
+/usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtwebenginequickpluginTargets-relwithdebinfo.cmake:
+
+/usr/include/qt6/QtQuick/QQuickImageProvider:
+
+/usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtwebenginequickpluginConfig.cmake:
+
 /usr/include/qt6/QtNetwork/qtnetwork-config.h:
 
 /usr/include/qt6/QtCore/qtenvironmentvariables.h:
@@ -7789,10 +7798,6 @@ chi-shell_autogen/UVLADIE3JM/moc_DesktopEntryModel.cpp:
 /usr/include/qt6/QtCore/qmetatype.h:
 
 /usr/include/qt6/QtCore/qmetaobject.h:
-
-/usr/include/qt6/QtQuick/QQuickImageProvider:
-
-/usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtwebenginequickpluginConfig.cmake:
 
 /usr/lib64/cmake/Qt6/QtPublicCMakeHelpers.cmake:
 
@@ -8058,9 +8063,7 @@ CMakeFiles/chi-shell.dir/src/WindowTracker.cpp.o:
 
 /usr/include/c++/15/tr1/modified_bessel_func.tcc:
 
-/usr/share/cmake/Modules/FindPackageMessage.cmake:
-
-/usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtwebenginequickpluginTargets-relwithdebinfo.cmake:
+/usr/include/qt6/QtCore/qprocess.h:
 
 /usr/include/qt6/QtCore/qtimer.h:
 
@@ -8367,6 +8370,10 @@ CMakeFiles/chi-shell.dir/src/WindowTracker.cpp.o:
 /usr/include/asm-generic/errno-base.h:
 
 /usr/include/asm-generic/types.h:
+
+/usr/lib64/libk5crypto.so.3:
+
+/usr/include/qt6/QtCore/QProcess:
 
 /usr/lib64/cmake/Qt6Gui/Qt6QPdfPluginTargets-relwithdebinfo.cmake:
 

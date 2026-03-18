@@ -314,12 +314,12 @@ CMakeFiles/chi-shell.dir/src/SystemStatus.cpp.o: \
  /usr/include/qt6/QtCore/qabstracteventdispatcher.h \
  /usr/include/qt6/QtCore/qeventloop.h \
  /usr/include/qt6/QtCore/qdeadlinetimer.h \
+ /usr/include/qt6/QtCore/QProcess /usr/include/qt6/QtCore/qprocess.h \
+ /usr/include/qt6/QtCore/qiodevice.h /usr/include/qt6/QtCore/qspan.h \
+ /usr/include/c++/15/cassert /usr/include/qt6/QtCore/q20iterator.h \
  /usr/include/qt6/QtDBus/QDBusReply /usr/include/qt6/QtDBus/qdbusreply.h \
  /usr/include/qt6/QtDBus/qdbuspendingreply.h \
- /usr/include/qt6/QtDBus/qdbusargument.h /usr/include/qt6/QtCore/QProcess \
- /usr/include/qt6/QtCore/qprocess.h /usr/include/qt6/QtCore/qiodevice.h \
- /usr/include/qt6/QtCore/qspan.h /usr/include/c++/15/cassert \
- /usr/include/qt6/QtCore/q20iterator.h /usr/include/qt6/QtCore/QFile \
+ /usr/include/qt6/QtDBus/qdbusargument.h /usr/include/qt6/QtCore/QFile \
  /usr/include/qt6/QtCore/qfile.h /usr/include/qt6/QtCore/qfiledevice.h \
  /usr/include/c++/15/filesystem /usr/include/c++/15/bits/fs_fwd.h \
  /usr/include/c++/15/bits/fs_path.h /usr/include/c++/15/locale \

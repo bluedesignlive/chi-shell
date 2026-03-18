@@ -20,7 +20,7 @@ public:
         WindowCountRole,
         IsActivatedRole,
         IsMinimizedRole,
-        FirstWindowIndexRole,  // index into WindowTracker
+        FirstWindowIndexRole,
     };
 
     explicit GroupedWindowsModel(QObject *parent = nullptr);
@@ -45,23 +45,28 @@ signals:
 
 private slots:
     void scheduleRebuild();
-    void rebuild();
+    void scheduleRefreshState();
+    void processUpdate();
 
 private:
+    void rebuild();
+    void refreshState();
+
     struct Group {
         QString appId;
-        QString title;      // title of first/active window
+        QString title;
         QString iconName;
         int windowCount = 0;
         bool isActivated = false;
-        bool isMinimized = false;  // true only if ALL windows minimized
+        bool isMinimized = false;
         int firstWindowIndex = -1;
     };
 
     QVector<Group> m_groups;
     WindowTracker *m_windowTracker = nullptr;
     PinnedAppsModel *m_pinnedModel = nullptr;
-    QTimer m_rebuildTimer;
+    QTimer m_updateTimer;
+    bool m_needsRebuild = false;
 };
 
 #endif // GROUPEDWINDOWSMODEL_H

@@ -55,6 +55,8 @@ public:
     Q_INVOKABLE void launchNew(const QString &appId);
     Q_INVOKABLE bool isPinned(const QString &appId) const;
     Q_INVOKABLE QString execForApp(const QString &appId) const;
+    Q_INVOKABLE QVariantList desktopActionsForApp(const QString &appId) const;
+    Q_INVOKABLE void launchAction(const QString &exec);
 
     QSet<QString> pinnedAppIds() const;
 
@@ -70,6 +72,7 @@ private:
     void load();
     void save() const;
     PinnedApp resolveApp(const QString &appId) const;
+    QString findDesktopFilePath(const QString &appId) const;
     QString configDir() const;
     QString configFilePath() const;
 

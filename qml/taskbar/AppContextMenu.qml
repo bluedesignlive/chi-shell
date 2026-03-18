@@ -20,6 +20,7 @@ Item {
     property int    _groupIdx: -1
     property int    _srcWinIdx: -1
     property real   _targetX: 0
+    property var    _desktopActions: []
 
     property bool _winMinimized:  _srcWinIdx >= 0 && _open ? windowTracker.isMinimizedAt(_srcWinIdx) : false
     property bool _winMaximized:  _srcWinIdx >= 0 && _open ? windowTracker.isMaximizedAt(_srcWinIdx) : false
@@ -59,6 +60,7 @@ Item {
         _isPinned = isPinned; _pinIdx = pinIdx; _groupIdx = -1
         _srcWinIdx = isRunning ? windowTracker.firstIndexForApp(appId) : -1
         _targetX = gx - card.width / 2
+        _desktopActions = pinnedApps.desktopActionsForApp(appId)
         _refreshState()
         _open = true
     }
@@ -68,11 +70,22 @@ Item {
         _isPinned = isPinned; _pinIdx = -1; _groupIdx = groupIdx
         _srcWinIdx = groupedWindows.firstWindowIndex(groupIdx)
         _targetX = gx - card.width / 2
+        _desktopActions = pinnedApps.desktopActionsForApp(appId)
         _refreshState()
         _open = true
     }
 
     function close() { _open = false }
+
+    function _actionIcon(name) {
+        var n = name.toLowerCase()
+        if (n.indexOf("private") >= 0 || n.indexOf("incognito") >= 0) return "lock"
+        if (n.indexOf("profile") >= 0) return "person"
+        if (n.indexOf("window") >= 0) return "add"
+        if (n.indexOf("play") >= 0) return "play_arrow"
+        if (n.indexOf("open") >= 0) return "open_in_new"
+        return "arrow_right"
+    }
 
     function _refreshState() {
         if (_srcWinIdx >= 0) {
@@ -138,6 +151,19 @@ Item {
                 icon: "add"; label: "New Window"
                 visible: pinnedApps.execForApp(actx._appId) !== ""
                 onClicked: { pinnedApps.launchNew(actx._appId); actx.close() }
+            }
+
+            // Desktop Actions (freedesktop.org Desktop Entry spec)
+            Repeater {
+                model: actx._desktopActions
+                CtxItem {
+                    icon: actx._actionIcon(modelData.name)
+                    label: modelData.name
+                    onClicked: {
+                        pinnedApps.launchAction(modelData.exec)
+                        actx.close()
+                    }
+                }
             }
 
             Rectangle {

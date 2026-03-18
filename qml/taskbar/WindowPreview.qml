@@ -16,6 +16,9 @@ Item {
     property real   _targetX: 0
     property var    _windows: []
     property int    _tick: 0
+    property int    _captureFailCount: 0
+    property bool   _captureWorking: false
+    property var    _failedApps: ({})  // appId → true, persists across show/hide
 
     // WindowTracker role constants (Qt::UserRole + 1 = 257)
     readonly property int _roleAppId:     257
@@ -44,6 +47,8 @@ Item {
 
     function show(appId, gx) {
         _appId = appId
+        _captureFailCount = _failedApps[appId] ? 99 : 0
+        _captureWorking = false
         _buildWindowList()
         if (_windows.length === 0) return
         var cardW = Math.min(Math.max(_windows.length, 1) * 220 + 16, totalWidth - 32)
@@ -55,12 +60,22 @@ Item {
 
     function hide() {
         _captureTimer.stop()
+        _tickBump.stop()
         _open = false
         _appId = ""
         _windows = []
+        _tick = 0
+        _captureFailCount = 0
+        _captureWorking = false
+        // Note: _failedApps intentionally NOT reset — persists for session
     }
 
     function _requestCaptures() {
+        // Stop retrying if captures consistently fail
+        if (_captureFailCount >= 2) {
+            _captureTimer.stop()
+            return
+        }
         if (typeof wayfireIPC !== "undefined" && typeof wayfireIPC.captureViewThumbnails === "function") {
             wayfireIPC.captureViewThumbnails(_appId)
         }
@@ -69,7 +84,10 @@ Item {
 
     Timer {
         id: _tickBump; interval: 400
-        onTriggered: preview._tick++
+        onTriggered: {
+            if (preview._captureFailCount < 2)
+                preview._tick++
+        }
     }
 
     Timer {
@@ -170,13 +188,31 @@ Item {
                                 id: thumbImg
                                 anchors.fill: parent
                                 fillMode: Image.PreserveAspectFit
-                                source: preview._tick > 0
+                                source: preview._tick > 0 && preview._captureFailCount < 2
                                     ? "file:///tmp/chi-thumb-" + preview._appId
                                       + "-" + index + ".png#" + preview._tick
                                     : ""
                                 cache: false
                                 asynchronous: true
                                 visible: status === Image.Ready
+                                onStatusChanged: {
+                                    if (status === Image.Ready) {
+                                        preview._captureFailCount = 0
+                                        preview._captureWorking = true
+                                        // Remove from failed cache — captures work now
+                                        var fa = preview._failedApps
+                                        delete fa[preview._appId]
+                                        preview._failedApps = fa
+                                    } else if (status === Image.Error) {
+                                        preview._captureFailCount++
+                                        if (preview._captureFailCount >= 2) {
+                                            // Remember this app can't produce thumbnails
+                                            var fa2 = preview._failedApps
+                                            fa2[preview._appId] = true
+                                            preview._failedApps = fa2
+                                        }
+                                    }
+                                }
                             }
 
                             AppIcon {

@@ -9,23 +9,94 @@
 SystemStatus::SystemStatus(QObject *parent)
     : QObject(parent)
 {
-    // poll system services every 3 seconds
     connect(&m_pollTimer, &QTimer::timeout, this, &SystemStatus::refresh);
     m_pollTimer.start(15000);
 
-    refresh();
+    // Delay first poll — give system services time to start
+    QTimer::singleShot(2000, this, &SystemStatus::refresh);
 }
 
 void SystemStatus::refresh()
 {
+    m_pollCycle++;
     pollBattery();
     pollNetwork();
     pollBluetooth();
-    pollAudio();
+    pollAudioVolume();
+    pollAudioMute();
     pollBrightness();
 }
 
-// ─── Battery via UPower ─────────────────────────────────
+// ─── Async process with backoff ─────────────────────────
+
+bool SystemStatus::shouldSkip(const QString &id) const
+{
+    int fails = m_failCounts.value(id, 0);
+    if (fails < 3)   return false;             // first 3 failures: always try
+    if (fails >= 10)  return true;             // 10+ failures: give up entirely
+    // 3-9 failures: try once every 4 cycles (once per minute at 15s interval)
+    return (m_pollCycle % 4) != 0;
+}
+
+void SystemStatus::recordSuccess(const QString &id)
+{
+    m_failCounts[id] = 0;
+}
+
+void SystemStatus::recordFailure(const QString &id)
+{
+    int count = ++m_failCounts[id];
+    if (count == 3)
+        qWarning() << "SystemStatus:" << id << "failed 3 times, backing off";
+    else if (count == 10)
+        qWarning() << "SystemStatus:" << id << "failed 10 times, disabling";
+}
+
+void SystemStatus::asyncCommand(const QString &id, const QString &program,
+                                 const QStringList &args,
+                                 std::function<void(const QString &)> callback)
+{
+    if (shouldSkip(id)) return;
+
+    // Don't start another if one is already running
+    if (m_runningCommands.contains(id)) return;
+    m_runningCommands.insert(id);
+
+    auto *proc = new QProcess(this);
+
+    auto *timeout = new QTimer(proc);
+    timeout->setSingleShot(true);
+    timeout->setInterval(2000);
+    connect(timeout, &QTimer::timeout, proc, [this, proc, id]() {
+        recordFailure(id);
+        m_runningCommands.remove(id);
+        proc->kill();
+    });
+
+    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this, proc, id, callback](int exitCode, QProcess::ExitStatus) {
+        m_runningCommands.remove(id);
+        if (exitCode == 0) {
+            recordSuccess(id);
+            callback(proc->readAllStandardOutput());
+        } else {
+            recordFailure(id);
+        }
+        proc->deleteLater();
+    });
+
+    connect(proc, &QProcess::errorOccurred, this, [this, proc, id](QProcess::ProcessError err) {
+        m_runningCommands.remove(id);
+        if (err == QProcess::FailedToStart)
+            recordFailure(id);
+        proc->deleteLater();
+    });
+
+    proc->start(program, args);
+    timeout->start();
+}
+
+// ─── Battery via UPower (DBus — always fast) ────────────
 
 void SystemStatus::pollBattery()
 {
@@ -36,11 +107,9 @@ void SystemStatus::pollBattery()
         QDBusConnection::systemBus()
     );
 
-    if (!upower.isValid())
-        return;
+    if (!upower.isValid()) return;
 
     int percent = static_cast<int>(upower.property("Percentage").toDouble());
-    // UPower State: 1=charging, 2=discharging, 4=fully charged
     uint state = upower.property("State").toUInt();
     bool charging = (state == 1 || state == 4);
 
@@ -53,8 +122,7 @@ void SystemStatus::pollBattery()
 
 QString SystemStatus::batteryIcon() const
 {
-    if (m_batteryCharging)
-        return "battery_charging_full";
+    if (m_batteryCharging) return "battery_charging_full";
     if (m_batteryPercent > 90) return "battery_full";
     if (m_batteryPercent > 60) return "battery_5_bar";
     if (m_batteryPercent > 30) return "battery_3_bar";
@@ -73,54 +141,50 @@ void SystemStatus::pollNetwork()
         QDBusConnection::systemBus()
     );
 
-    if (!nm.isValid())
-        return;
+    if (!nm.isValid()) return;
 
     bool wifiEnabled = nm.property("WirelessEnabled").toBool();
-    bool connected = false;
-    QString ssid;
-    int strength = 0;
-
-    // NMState: 70 = connected global
     uint nmState = nm.property("State").toUInt();
-    connected = (nmState >= 70);
+    bool connected = (nmState >= 70);
 
-    if (connected) {
-        // try to get active connection info
-        QDBusInterface active(
-            "org.freedesktop.NetworkManager",
-            "/org/freedesktop/NetworkManager",
-            "org.freedesktop.NetworkManager",
-            QDBusConnection::systemBus()
-        );
+    if (!connected) {
+        if (wifiEnabled != m_wifiEnabled || connected != m_wifiConnected
+            || !m_wifiSSID.isEmpty()) {
+            m_wifiEnabled = wifiEnabled;
+            m_wifiConnected = false;
+            m_wifiSSID.clear();
+            m_wifiStrength = 0;
+            emit networkChanged();
+        }
+        return;
+    }
 
-        // simplified: use nmcli as fallback for SSID
-        QProcess proc;
-        proc.start("nmcli", {"-t", "-f", "ACTIVE,SSID,SIGNAL", "dev", "wifi"});
-        if (!proc.waitForStarted(2000)) return;
-        proc.waitForFinished(3000);
-        if (proc.state() != QProcess::NotRunning) { proc.kill(); proc.waitForFinished(500); }
-        QString output = proc.readAllStandardOutput();
-        for (const auto &line : output.split('\n')) {
-            if (line.startsWith("yes:")) {
-                auto parts = line.split(':');
-                if (parts.size() >= 3) {
-                    ssid = parts[1];
-                    strength = parts[2].toInt();
+    // SSID + strength via nmcli (async, with --wait 0 to prevent scan blocking)
+    asyncCommand("nmcli-wifi", "nmcli",
+        {"-t", "-f", "ACTIVE,SSID,SIGNAL", "--wait", "0", "dev", "wifi", "list"},
+        [this, wifiEnabled, connected](const QString &output) {
+            QString ssid;
+            int strength = 0;
+            for (const auto &line : output.split('\n')) {
+                if (line.startsWith("yes:")) {
+                    auto parts = line.split(':');
+                    if (parts.size() >= 3) {
+                        ssid = parts[1];
+                        strength = parts[2].toInt();
+                    }
+                    break;
                 }
-                break;
+            }
+            if (wifiEnabled != m_wifiEnabled || connected != m_wifiConnected
+                || ssid != m_wifiSSID || strength != m_wifiStrength) {
+                m_wifiEnabled = wifiEnabled;
+                m_wifiConnected = connected;
+                m_wifiSSID = ssid;
+                m_wifiStrength = strength;
+                emit networkChanged();
             }
         }
-    }
-
-    if (wifiEnabled != m_wifiEnabled || connected != m_wifiConnected
-        || ssid != m_wifiSSID || strength != m_wifiStrength) {
-        m_wifiEnabled = wifiEnabled;
-        m_wifiConnected = connected;
-        m_wifiSSID = ssid;
-        m_wifiStrength = strength;
-        emit networkChanged();
-    }
+    );
 }
 
 QString SystemStatus::networkIcon() const
@@ -141,15 +205,13 @@ void SystemStatus::setWifiEnabled(bool enabled)
         "org.freedesktop.DBus.Properties",
         QDBusConnection::systemBus()
     );
-
     nm.call("Set", "org.freedesktop.NetworkManager",
             "WirelessEnabled", QVariant::fromValue(QDBusVariant(enabled)));
-
     m_wifiEnabled = enabled;
     emit networkChanged();
 }
 
-// ─── Bluetooth via BlueZ ────────────────────────────────
+// ─── Bluetooth via BlueZ (DBus — always fast) ──────────
 
 void SystemStatus::pollBluetooth()
 {
@@ -160,11 +222,9 @@ void SystemStatus::pollBluetooth()
         QDBusConnection::systemBus()
     );
 
-    if (!adapter.isValid())
-        return;
+    if (!adapter.isValid()) return;
 
     bool powered = adapter.property("Powered").toBool();
-
     if (powered != m_bluetoothEnabled) {
         m_bluetoothEnabled = powered;
         emit bluetoothChanged();
@@ -184,49 +244,44 @@ void SystemStatus::setBluetoothEnabled(bool enabled)
         "org.freedesktop.DBus.Properties",
         QDBusConnection::systemBus()
     );
-
     adapter.call("Set", "org.bluez.Adapter1",
                  "Powered", QVariant::fromValue(QDBusVariant(enabled)));
-
     m_bluetoothEnabled = enabled;
     emit bluetoothChanged();
 }
 
-// ─── Audio via pactl (PulseAudio/PipeWire) ──────────────
+// ─── Audio via pactl (async with backoff) ───────────────
 
-void SystemStatus::pollAudio()
+void SystemStatus::pollAudioVolume()
 {
-    QProcess proc;
-    proc.start("pactl", {"get-sink-volume", "@DEFAULT_SINK@"});
-    if (!proc.waitForStarted(2000)) return;
-    proc.waitForFinished(3000);
-    if (proc.state() != QProcess::NotRunning) { proc.kill(); proc.waitForFinished(500); }
-    QString output = proc.readAllStandardOutput();
-
-    // parse "Volume: front-left: 42000 /  64% / ..."
-    int idx = output.indexOf('%');
-    if (idx > 0) {
-        int start = idx - 1;
-        while (start > 0 && output[start - 1].isDigit())
-            --start;
-        int vol = output.mid(start, idx - start).toInt();
-        if (vol != m_volume) {
-            m_volume = vol;
-            emit audioChanged();
+    asyncCommand("pactl-volume", "pactl", {"get-sink-volume", "@DEFAULT_SINK@"},
+        [this](const QString &output) {
+            int idx = output.indexOf('%');
+            if (idx > 0) {
+                int start = idx - 1;
+                while (start > 0 && output[start - 1].isDigit())
+                    --start;
+                int vol = output.mid(start, idx - start).toInt();
+                if (vol != m_volume) {
+                    m_volume = vol;
+                    emit audioChanged();
+                }
+            }
         }
-    }
+    );
+}
 
-    // check mute
-    QProcess muteProc;
-    muteProc.start("pactl", {"get-sink-mute", "@DEFAULT_SINK@"});
-    if (!muteProc.waitForStarted(2000)) return;
-    muteProc.waitForFinished(3000);
-    if (muteProc.state() != QProcess::NotRunning) { muteProc.kill(); muteProc.waitForFinished(500); }
-    bool muted = muteProc.readAllStandardOutput().contains("yes");
-    if (muted != m_muted) {
-        m_muted = muted;
-        emit audioChanged();
-    }
+void SystemStatus::pollAudioMute()
+{
+    asyncCommand("pactl-mute", "pactl", {"get-sink-mute", "@DEFAULT_SINK@"},
+        [this](const QString &output) {
+            bool muted = output.contains("yes");
+            if (muted != m_muted) {
+                m_muted = muted;
+                emit audioChanged();
+            }
+        }
+    );
 }
 
 QString SystemStatus::audioIcon() const
@@ -259,18 +314,15 @@ void SystemStatus::setMuted(bool muted)
     emit audioChanged();
 }
 
-// ─── Brightness via sysfs ───────────────────────────────
+// ─── Brightness via sysfs (file I/O — always fast) ──────
 
 void SystemStatus::pollBrightness()
 {
     QDir backlightDir("/sys/class/backlight");
     QStringList devices = backlightDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-
-    if (devices.isEmpty())
-        return;
+    if (devices.isEmpty()) return;
 
     QString device = backlightDir.filePath(devices.first());
-
     QFile maxFile(device + "/max_brightness");
     QFile curFile(device + "/brightness");
 
@@ -292,12 +344,10 @@ void SystemStatus::pollBrightness()
 void SystemStatus::setBrightness(double brightness)
 {
     brightness = qBound(0.0, brightness, 1.0);
-
     QDir backlightDir("/sys/class/backlight");
     QStringList devices = backlightDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
     if (devices.isEmpty()) {
-        // fallback: use brightnessctl
         int percent = static_cast<int>(brightness * 100);
         QProcess::startDetached("brightnessctl", {
             "set", QString::number(percent) + "%"
@@ -308,13 +358,11 @@ void SystemStatus::setBrightness(double brightness)
         if (maxFile.open(QIODevice::ReadOnly)) {
             int max = maxFile.readAll().trimmed().toInt();
             int val = static_cast<int>(brightness * max);
-            // requires write permission or use brightnessctl
             QProcess::startDetached("brightnessctl", {
                 "set", QString::number(val)
             });
         }
     }
-
     m_brightness = brightness;
     emit brightnessChanged();
 }

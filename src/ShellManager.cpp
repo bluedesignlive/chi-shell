@@ -19,7 +19,7 @@
 #include <QDebug>
 
 static const int BAR_H   = 52;
-static const int POPUP_H = 250;
+static const int POPUP_H = 500;
 static const int TOTAL_H = BAR_H + POPUP_H;
 
 ShellManager::ShellManager(QObject *parent)
@@ -118,6 +118,21 @@ bool ShellManager::initialize()
             this, [refreshTimer](const QString &) { refreshTimer->start(); });
 
     createSurfaces();
+
+    // Track screen geometry changes (resolution, rotation, etc.)
+    connect(QGuiApplication::primaryScreen(), &QScreen::geometryChanged,
+            this, [this](const QRect &geo) {
+        if (geo.width() == m_screenWidth) return;
+        m_screenWidth = geo.width();
+        qDebug() << "ShellManager: screen width changed to" << m_screenWidth;
+        if (m_taskbar) {
+            m_taskbar->setSize(m_screenWidth, TOTAL_H);
+            updateTaskbarInputMask();
+        }
+        if (m_statusBar)
+            m_statusBar->setSize(m_screenWidth, 36);
+    });
+
     qDebug() << "ShellManager: initialized";
     return true;
 }
@@ -168,7 +183,7 @@ void ShellManager::setTaskbarPopupActive(bool active)
 {
     if (m_taskbarPopupActive == active) return;
     m_taskbarPopupActive = active;
-    updateTaskbarInputMask();
+    updateTaskbarInputMask();  // C++ side — QML also calls taskbarSurface directly
     emit taskbarPopupActiveChanged();
 }
 
@@ -205,6 +220,7 @@ void ShellManager::createSurfaces()
 
     // ── Taskbar (bottom) ─────────────────────────────────
     m_taskbar = new ShellSurface(m_engine, this);
+    m_taskbar->setContextProperty("taskbarSurface", m_taskbar);
     m_taskbar->setLayer(ShellSurface::Top);
     m_taskbar->setAnchors(Anchors(A::AnchorBottom | A::AnchorLeft | A::AnchorRight));
     m_taskbar->setExclusiveZone(BAR_H);

@@ -317,6 +317,7 @@
  /usr/include/qt6/QtCore/QList
  /usr/include/qt6/QtCore/QMargins
  /usr/include/qt6/QtCore/QObject
+ /usr/include/qt6/QtCore/QProcess
  /usr/include/qt6/QtCore/QRect
  /usr/include/qt6/QtCore/QRectF
  /usr/include/qt6/QtCore/QSet
@@ -422,6 +423,7 @@
  /usr/include/qt6/QtCore/qpair.h
  /usr/include/qt6/QtCore/qpoint.h
  /usr/include/qt6/QtCore/qpointer.h
+ /usr/include/qt6/QtCore/qprocess.h
  /usr/include/qt6/QtCore/qprocessordetection.h
  /usr/include/qt6/QtCore/qrect.h
  /usr/include/qt6/QtCore/qrefcount.h
@@ -1616,6 +1618,7 @@ CMakeFiles/chi-shell.dir/chi-shell_autogen/mocs_compilation.cpp.o
  /usr/include/qt6/QtCore/QList
  /usr/include/qt6/QtCore/QMargins
  /usr/include/qt6/QtCore/QObject
+ /usr/include/qt6/QtCore/QProcess
  /usr/include/qt6/QtCore/QRect
  /usr/include/qt6/QtCore/QRectF
  /usr/include/qt6/QtCore/QSet
@@ -1722,6 +1725,7 @@ CMakeFiles/chi-shell.dir/chi-shell_autogen/mocs_compilation.cpp.o
  /usr/include/qt6/QtCore/qpair.h
  /usr/include/qt6/QtCore/qpoint.h
  /usr/include/qt6/QtCore/qpointer.h
+ /usr/include/qt6/QtCore/qprocess.h
  /usr/include/qt6/QtCore/qprocessordetection.h
  /usr/include/qt6/QtCore/qrect.h
  /usr/include/qt6/QtCore/qrefcount.h
@@ -3628,6 +3632,7 @@ CMakeFiles/chi-shell.dir/src/PinnedAppsModel.cpp.o
  /usr/include/qt6/QtCore/QSet
  /usr/include/qt6/QtCore/QSortFilterProxyModel
  /usr/include/qt6/QtCore/QStandardPaths
+ /usr/include/qt6/QtCore/QTextStream
  /usr/include/qt6/QtCore/QTimer
  /usr/include/qt6/QtCore/QVariant
  /usr/include/qt6/QtCore/q17memory.h
@@ -4169,6 +4174,7 @@ CMakeFiles/chi-shell.dir/src/ShellManager.cpp.o
  /usr/include/qt6/QtCore/QMargins
  /usr/include/qt6/QtCore/QMutex
  /usr/include/qt6/QtCore/QObject
+ /usr/include/qt6/QtCore/QProcess
  /usr/include/qt6/QtCore/QRect
  /usr/include/qt6/QtCore/QRectF
  /usr/include/qt6/QtCore/QSet
@@ -4281,6 +4287,7 @@ CMakeFiles/chi-shell.dir/src/ShellManager.cpp.o
  /usr/include/qt6/QtCore/qpair.h
  /usr/include/qt6/QtCore/qpoint.h
  /usr/include/qt6/QtCore/qpointer.h
+ /usr/include/qt6/QtCore/qprocess.h
  /usr/include/qt6/QtCore/qprocessordetection.h
  /usr/include/qt6/QtCore/qrect.h
  /usr/include/qt6/QtCore/qrefcount.h

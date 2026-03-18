@@ -427,6 +427,7 @@ CMakeFiles/chi-shell.dir/src/ShellManager.cpp.o: \
  /usr/include/qt6/QtDBus/qdbusextratypes.h \
  /usr/include/qt6/QtDBus/qdbusconnection.h \
  /usr/include/qt6/QtDBus/qdbuspendingcall.h \
+ /usr/include/qt6/QtCore/QProcess /usr/include/qt6/QtCore/qprocess.h \
  /home/lufuno/Documents/chi-shell/src/DesktopEntryModel.h \
  /usr/include/qt6/QtCore/QSortFilterProxyModel \
  /usr/include/qt6/QtCore/qsortfilterproxymodel.h \
