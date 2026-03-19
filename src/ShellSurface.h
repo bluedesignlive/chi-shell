@@ -35,7 +35,7 @@ public:
 
     void setLayer(Layer layer);
     void setAnchors(LayerShellQt::Window::Anchors anchors);
-    void setExclusiveZone(int zone);
+    Q_INVOKABLE void setExclusiveZone(int zone);
     void setKeyboardMode(KeyboardMode mode);
     void setMargins(int top, int right, int bottom, int left);
     void setSize(int width, int height);

@@ -16,6 +16,12 @@ Item {
                                || popupsOpen || revealLock
     property bool revealLock: false
 
+    onAutoHideEnabledChanged: {
+        if (typeof taskbarSurface !== "undefined") {
+            taskbarSurface.setExclusiveZone(autoHideEnabled ? 0 : barH)
+        }
+    }
+
     onPopupsOpenChanged: {
         shell.taskbarPopupActive = popupsOpen
         updateInputRegion()
