@@ -64,6 +64,7 @@ public:
     Q_INVOKABLE void setFullscreen(int index, bool fullscreen);
 
     Q_INVOKABLE void closeAllForApp(const QString &appId);
+    Q_INVOKABLE void activateNextForApp(const QString &appId, bool forward = true);
     Q_INVOKABLE int  firstIndexForApp(const QString &appId) const;
     Q_INVOKABLE int  windowCountForApp(const QString &appId) const;
     Q_INVOKABLE bool isMaximizedAt(int index) const;

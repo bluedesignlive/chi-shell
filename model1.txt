@@ -1,0 +1,168 @@
+Great question — let me research what standards exist on Linux/freedesktop for app-level quick controls, and what the state of the art is.Excellent question. Let's have a real conversation about this. You're building something ambitious with chi-shell, and the honest answer about third-party quick settings on Linux is: **there is no single "TileService" equivalent like Android has** — but there IS a rich ecosystem of D-Bus specifications you can compose together. Let me lay it all out.
+
+---
+
+## 🧭 The State of Standards on Linux for Quick Settings Integration
+
+### What Android Has (Your Inspiration)
+
+Quick Settings on Android are tiles displayed in the Quick Settings panel, representing actions that users can tap to quickly complete recurring tasks. Apps can provide custom tiles to users through the `TileService` class, and use a `Tile` object to track the state of the tile.
+
+New in Android 7.0 (API 24), any app can now create a quick settings tile for quick access to critical pieces of functionality. Besides being an always-up-to-date surface for information from your app, tapping on a tile makes it possible to trigger background work, open a dialog, or even open an activity.
+
+There are three phases to a TileService: being added, listening, and being removed. When the user first adds your tile, the system binds to your TileService and calls `onTileAdded()`. After the tile is added, any time it becomes visible you get `onStartListening()`. You keep it updated until `onStopListening()`. When removed, `onTileRemoved()` fires.
+
+**Linux has NOTHING equivalent to this as a single unified spec.** But here's the good news — you can **build one** by composing these existing freedesktop standards:
+
+---
+
+### 1. 🎵 **MPRIS** — Media Player Controls (You're Missing This!)
+
+There is a standard D-Bus interface for controlling media players on a modern Linux desktop: MPRIS.
+
+Playerctl is a command-line utility and library for controlling media players that implement the MPRIS D-Bus Interface Specification. Playerctl makes it easy to bind player actions, such as play and pause, to media keys.
+
+MPRIS is the standard media player interface on Linux desktops. MPRIS integration is enabled by default in Plasma Desktop, and, along with GNOME's volume control widget, there are widgets for GNOME, too.
+
+**What you should do:** Listen on `org.mpris.MediaPlayer2.*` on the session bus. Every compliant media player (Spotify, Firefox, Chromium, VLC, mpv with plugin) broadcasts:
+- Track metadata (artist, title, album art URL)
+- Playback state (playing/paused/stopped)
+- Play/Pause/Next/Previous/Seek commands
+
+This is **THE** most impactful missing feature in your QuickSettings right now.
+
+---
+
+### 2. 📌 **StatusNotifierItem (SNI)** — App Tray Icons + Menus
+
+It is intended to be complementary but not directly related with the Freedesktop's Desktop Notifications specification and is aimed as a replacement to the Freedesktop System tray specification, though more model-view oriented, giving more freedom to the workspace how to graphically represent...
+
+Even all the big players, namely Unity, KDE and Gnome, started deprecating the tray specification and seem to be betting on the replacement instead: the StatusNotifierItem specification.
+
+A GNOME Shell extension that brings back the system tray for applications using StatusNotifierItem (AppIndicator/SNI) protocol. Zero Configuration - Works out of the box, no external daemon required. Automatic Discovery - Finds and displays all tray icons automatically. Native Menus - Full support for application context menus via DBusMenu.
+
+**What you should do:** Implement `org.kde.StatusNotifierWatcher` and `org.kde.StatusNotifierHost`. Apps like Discord, Telegram, Signal, Electron apps, and Qt apps will register their tray icons with you. You can then surface them either:
+- In your StatusBar as tray icons
+- OR innovatively — **as Quick Settings tiles** (this is the Android-macOS fusion move!)
+
+---
+
+### 3. 🌐 **XDG Desktop Portal** — The Closest Thing to a Universal App↔Shell API
+
+xdg-desktop-portal works by exposing a series of D-Bus interfaces known as portals under a well-known name (`org.freedesktop.portal.Desktop`) and object path (`/org/freedesktop/portal/desktop`).
+
+When an application sends a request to the portal, it is handled by xdg-desktop-portal, which then forwards it to a backend implementation. This allows implementations to provide suitable user interfaces that fit into the user's desktop environments.
+
+The XDG Portal API already defines interfaces you can **implement as a backend** for chi-shell:
+
+| Portal Interface | Relevance to Quick Settings |
+|---|---|
+| **`Power Profile Monitor`** | Provides information about the user-selected system-wide power profile, to sandboxed applications. → Battery saver tile |
+| **`Network Monitor`** | Network connectivity state for apps |
+| **`Settings`** | Dark/light mode, accent color, font size — apps read these from your shell |
+| **`Global Shortcuts`** | This portal lets applications create global shortcuts sessions, and register shortcuts to them. |
+| **`Notification`** | Your notification server already handles this |
+| **`Inhibit`** | Apps can request DND/screen-lock inhibit |
+
+**The big insight:** You should write a `xdg-desktop-portal-chi` backend. This makes every Flatpak, GTK, and Qt app "just work" with your shell.
+
+---
+
+### 4. 🔋 **power-profiles-daemon** (system D-Bus)
+
+You're missing a **Power Profile tile** (Performance / Balanced / Power Saver). This is exposed on `net.hadess.PowerProfiles` on the system bus. Trivial to integrate — same pattern as your UPower battery polling.
+
+---
+
+### 5. 🌙 **Nightlight / Color Temperature**
+
+You can implement this via `org.freedesktop.portal.Settings` (color-scheme) or directly through Wayfire's gamma control protocol. This is a beloved quick settings tile on every other platform.
+
+---
+
+## 🔍 What You're Missing (Feature Gap Analysis)
+
+Looking at your current `QuickSettings.qml` vs. what users expect:
+
+| Feature | Your Status | Priority |
+|---|---|---|
+| **MPRIS media controls** | ❌ Missing | 🔴 Critical |
+| **SNI tray integration** | ❌ Missing | 🔴 Critical |
+| **Power profile tile** | ❌ Missing | 🟡 High |
+| **Night Light toggle** | ❌ Missing | 🟡 High |
+| **Airplane mode** | ❌ Missing | 🟡 High |
+| **Screen rotation lock** | ❌ Missing | 🟢 Medium |
+| **Editable / reorderable tiles** | ❌ Missing | 🔴 Critical |
+| **User profile / avatar** | ❌ Missing | 🟢 Medium |
+| **Expandable Wi-Fi sub-panel** (tap arrow to see networks) | ❌ Missing | 🔴 Critical |
+| **Expandable BT sub-panel** (tap arrow to see devices) | ❌ Missing | 🔴 Critical |
+| **Cast/screen mirror** | ❌ Missing | 🟢 Medium |
+| **3rd-party tile API** (your own D-Bus spec) | ❌ Missing | 🟡 High |
+| **Resizable tiles** (small/medium/large) | ❌ Missing | 🟢 Medium |
+| **Scroll within panel** | ⚠️ Partial (`clip: true` but no Flickable) | 🟡 High |
+| **Animations (open/close)** | ❌ Missing | 🟡 High |
+
+---
+
+## 🏗️ The Innovation Opportunity: Define YOUR OWN `chi.TileService`
+
+Since Linux doesn't have Android's TileService, **you can pioneer one**. Here's the design I'd suggest:
+
+```
+# D-Bus interface: org.chi.QuickSettings.TileProvider
+#
+# Any app can register tiles by:
+# 1. Dropping a .desktop-like file in ~/.local/share/chi-shell/tiles/
+# 2. OR registering on D-Bus at runtime
+
+Interface: org.chi.QuickSettings.Tile
+  Properties:
+    - Id         (string)    — unique tile id
+    - Label      (string)    — display name
+    - Icon       (string)    — icon name or path
+    - State      (uint32)    — 0=unavailable, 1=inactive, 2=active
+    - Subtitle   (string)    — secondary text ("Connected", "2 devices")
+    - Category   (string)    — "connectivity", "display", "sound", "system"
+  
+  Methods:
+    - Activate()             — user tapped the tile
+    - SecondaryActivate()    — user long-pressed or tapped expand arrow
+  
+  Signals:
+    - StateChanged(uint32 newState)
+    - PropertiesChanged(...)
+```
+
+This would be **the first Linux shell to offer a proper third-party Quick Settings tile API** — essentially what Android has had since API 24, but over D-Bus. Apps could ship a simple D-Bus service that chi-shell auto-discovers.
+
+---
+
+## 💡 Summary: Your Roadmap
+
+**Phase 1 — Essential Polish:**
+1. Add `Flickable` wrapper to your panel (it'll clip content on small screens)
+2. Add open/close animations (Y-translate + opacity)
+3. Add MPRIS media widget above/below your tiles
+4. Replace your sliders with proper `MouseArea` + `Slider` (keyboard accessibility)
+
+**Phase 2 — Connectivity Depth:**
+5. Wi-Fi sub-panel (tap arrow → show network list via `nmcli`)
+6. Bluetooth sub-panel (tap arrow → show paired devices via BlueZ D-Bus)
+7. Airplane mode tile (disable both radios)
+8. Power profile tile (`net.hadess.PowerProfiles`)
+9. Night Light tile (gamma control)
+
+**Phase 3 — Platform Integration:**
+10. Implement `org.kde.StatusNotifierWatcher` for SNI tray
+11. Write `xdg-desktop-portal-chi` backend
+12. Define `org.chi.QuickSettings.Tile` D-Bus API for 3rd party tiles
+
+**Phase 4 — Innovation (Android + macOS Fusion):**
+13. Editable tile grid (pencil icon → drag to reorder, remove, add)
+14. Resizable tiles (hold → resize handle → small/wide/large)
+15. Multi-panel support (swipe left → second panel for e.g. smart home)
+16. Persistent tile configuration in `~/.config/chi-shell/quicksettings.json`
+
+You have a **really solid foundation** with your `SystemStatus` class and the async command pattern with backoff. The architecture is clean. The biggest wins right now are MPRIS, SNI, and expandable sub-panels — those three alone will make it feel like a real modern shell.
+
+Want to dive into implementing any of these? I can write the C++ or QML for any specific piece.

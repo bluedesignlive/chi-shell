@@ -190,6 +190,33 @@ void WindowTracker::closeAllForApp(const QString &appId)
     }
 }
 
+
+void WindowTracker::activateNextForApp(const QString &appId, bool forward)
+{
+    QVector<int> indices;
+    int activeSlot = -1;
+    for (int i = 0; i < m_windows.size(); ++i) {
+        if (m_windows[i].appId == appId) {
+            if (m_windows[i].activated)
+                activeSlot = indices.size();
+            indices.append(i);
+        }
+    }
+    if (indices.isEmpty()) return;
+    if (indices.size() == 1) {
+        toggleMinimize(indices[0]);
+        return;
+    }
+    int next;
+    if (activeSlot < 0)
+        next = 0;
+    else if (forward)
+        next = (activeSlot + 1) % indices.size();
+    else
+        next = (activeSlot - 1 + indices.size()) % indices.size();
+    activate(indices[next]);
+}
+
 int WindowTracker::firstIndexForApp(const QString &appId) const
 {
     for (int i = 0; i < m_windows.size(); ++i)

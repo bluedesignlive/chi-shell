@@ -1,0 +1,512 @@
+Now I have a comprehensive picture of your codebase and the Linux ecosystem standards. Let me write the spec file:
+
+---
+
+Here's your `spec.md`:
+
+```markdown
+# Chi Shell — Quick Settings Panel Specification
+
+> **Version:** 0.3.0-draft
+> **Target:** Wayfire / Wayland compositor shell
+> **Style:** Android Quick Settings ✕ macOS Control Center fusion
+> **Stack:** Qt 6 / QML + C++ (LayerShellQt)
+
+---
+
+## 1. Overview
+
+The Quick Settings panel is a full-screen overlay surface (`ShellSurface::Overlay`)
+anchored to the top-right of the screen. It serves as the **primary control hub**
+for all frequently used system settings, hardware toggles, media playback,
+and third-party quick actions — accessible in a single gesture or click from
+the status bar.
+
+### Design Principles
+
+| Principle | Description |
+|---|---|
+| **One-tap useful** | Every tile either toggles state or reveals a sub-page — no dead clicks |
+| **Android grid + macOS polish** | 2-column tile grid with rounded Material You containers, macOS-level animation smoothness |
+| **Freedesktop-native** | All system integrations via standard D-Bus interfaces — no proprietary daemons |
+| **Context-aware** | Tiles auto-show/hide based on hardware capability (e.g. no battery tile on desktops) |
+| **Keyboard-first optional** | Full keyboard navigation + shortcut to open (`Super+A` or configurable) |
+
+---
+
+## 2. Panel Layout (Top → Bottom)
+
+```
+┌──────────────────────────────────┐
+│  ① Status Header                 │
+│     Time (large) + Date          │
+│     Right: Wi-Fi / BT / Battery  │
+├──────────────────────────────────┤
+│  ② Brightness Slider             │
+│     [████████████░░░░░░░░░  ☀ ]  │
+├──────────────────────────────────┤
+│  ③ Volume Slider                 │
+│     [██████████░░░░░░░░░░░  🔊]  │
+├──────────────────────────────────┤
+│  ④ Media Player Card (MPRIS)     │
+│     Album art | Title / Artist   │
+│     ◀◀  ▶⏸  ▶▶   ━━━━●━━━━━━━  │
+├──────────────────────────────────┤
+│  ⑤ Tile Grid (2-col, scrollable) │
+│     [ Wi-Fi       ] [ Bluetooth ]│
+│     [ Dark Mode   ] [ DND ] [🔇]│
+│     [ Power Mode  ] [ Airplane  ]│
+│     [ Night Light ] [ Screencast]│
+│     [ Rotation    ] [ Hotspot   ]│
+│     ... (user-customizable)      │
+├──────────────────────────────────┤
+│  ⑥ Third-Party Tiles Section     │
+│     (StatusNotifierItem tiles)   │
+├──────────────────────────────────┤
+│  ⑦ Footer                        │
+│     [ ⚙ Settings ]  [ ⏻ Power ] │
+│     [ 👤 User / Session ]        │
+└──────────────────────────────────┘
+```
+
+**Panel dimensions:**
+
+- Width: `412px` (fixed)
+- Max height: `parent.height - 104px` (scrollable if content exceeds)
+- Corner radius: `28px`
+- Margin from top: `40px` (status bar 36 + 4 gap)
+- Margin from right: `8px`
+
+---
+
+## 3. Sections — Detailed Behaviour
+
+### 3.1 Status Header
+
+| Property | Value |
+|---|---|
+| Time | `h:mm` format, `font.pixelSize: 36`, updates every 1s via Timer |
+| Date | `ddd, MMM d` format, left-aligned |
+| Status icons | Wi-Fi signal, Bluetooth, Battery icon + percent — right-aligned |
+
+**Behaviour:**
+- Tapping the time opens the system clock/calendar (future: Calendar flyout)
+- Tapping the date — no action (passive)
+- Battery icon reflects charge state via UPower D-Bus (`org.freedesktop.UPower`)
+
+---
+
+### 3.2 Brightness Slider
+
+| Property | Value |
+|---|---|
+| Backend | `/sys/class/backlight/*/brightness` (sysfs read), `brightnessctl` (write) |
+| Range | `0.0` – `1.0` (normalized) |
+| Visual | Filled bar inside rounded container (`radius: 12`), icon pinned right |
+| Animation | `SpringAnimation { spring: 14.0; damping: 1.0 }` on width |
+
+**Behaviour:**
+- Drag or tap anywhere on the slider to set brightness
+- Icon changes based on level: `brightness_low`, `brightness_medium`, `brightness_high`
+- If no backlight device is detected, hide this slider entirely (context-aware)
+- **Optimization:** Poll via sysfs file read (fast, no subprocess) every 15s, or on
+  explicit user interaction for immediate feedback
+
+---
+
+### 3.3 Volume Slider
+
+| Property | Value |
+|---|---|
+| Backend | PipeWire/PulseAudio via `pactl` (async with backoff) |
+| Range | `0` – `100` (integer percent) |
+| Visual | Same style as brightness slider |
+| Icon | Dynamic: `volume_off`, `volume_mute`, `volume_down`, `volume_up` |
+
+**Behaviour:**
+- Drag or tap to set volume
+- Long-press / right-click the icon → toggle mute
+- **Optimization:** Use async `QProcess` with backoff tracking to avoid blocking
+  the UI thread — current implementation already does this correctly
+- **Future:** Replace `pactl` shelling with native PipeWire/PulseAudio D-Bus or
+  `libpipewire` C API for zero-fork polling
+
+**Output device picker (sub-page):**
+- Tapping the speaker icon (or a chevron `›`) opens a sub-page listing available
+  audio sinks from `pactl list sinks short`
+- Each sink shows: name, description, active indicator
+- Tap to switch default sink
+
+---
+
+### 3.4 Media Player Card (MPRIS) — **NEW**
+
+This is the most impactful missing feature. The MPRIS D-Bus specification
+(`org.mpris.MediaPlayer2`) is the **standard** on Linux for media player
+remote control.
+
+| Property | Value |
+|---|---|
+| D-Bus interface | `org.mpris.MediaPlayer2.Player` (session bus) |
+| Discovery | Watch `org.freedesktop.DBus.NameOwnerChanged` for names matching `org.mpris.MediaPlayer2.*` |
+| Metadata | `Metadata` property → `xesam:title`, `xesam:artist`, `mpris:artUrl`, `mpris:length` |
+| Playback | `PlaybackStatus` property → `Playing`, `Paused`, `Stopped` |
+| Controls | Methods: `PlayPause()`, `Next()`, `Previous()`, `Seek()` |
+| Position | `Position` property (int64 microseconds) |
+| Signals | `PropertiesChanged` on `org.freedesktop.DBus.Properties` |
+
+**Visual layout:**
+
+```
+┌─────────────────────────────────┐
+│ ┌──────┐  Song Title            │
+│ │album │  Artist Name           │
+│ │ art  │  App Name (e.g. Spot.) │
+│ └──────┘                        │
+│  ◀◀     ▶⏸     ▶▶              │
+│  ━━━━━━━●━━━━━━━━━━  2:31/4:02 │
+└─────────────────────────────────┘
+```
+
+**Behaviour:**
+- Only visible when at least one MPRIS player is registered on the session bus
+- If multiple players exist, show the **most recently active** one (track via
+  `NameOwnerChanged` signal order or `playerctld`-style logic)
+- Swipe left/right to switch between multiple players
+- Album art loaded from `mpris:artUrl` (file:// or http:// URI)
+- Seek bar is draggable
+- If no artwork → show app icon from desktop entry as fallback
+- Card disappears with smooth animation when player closes
+
+**Implementation approach:**
+- New C++ class: `MprisController` — monitors session bus for MPRIS players
+- Exposes Q_PROPERTY values to QML: `title`, `artist`, `artUrl`, `position`,
+  `length`, `playbackStatus`, `playerName`, `playerIcon`
+- Emits signals on `PropertiesChanged` from D-Bus — no polling needed
+
+---
+
+### 3.5 Tile Grid
+
+Tiles are the heart of Quick Settings. Each tile can be in one of two modes:
+
+| Tile Type | Width | Content |
+|---|---|---|
+| **Wide** | `(parent.width - 8) / 2` (half) | Icon + Title + Description |
+| **Compact** | `(parent.width - 8) / 4 - 4` (quarter) | Icon only |
+
+#### Built-in Tiles
+
+| Tile | Icon | Backend | D-Bus Interface |
+|---|---|---|---|
+| **Wi-Fi** | `wifi` / `wifi_off` | NetworkManager | `org.freedesktop.NetworkManager` (system bus) |
+| **Bluetooth** | `bluetooth` / `bluetooth_disabled` | BlueZ | `org.bluez.Adapter1` (system bus) |
+| **Dark Mode** | `dark_mode` / `light_mode` | Internal (ChiTheme) | N/A |
+| **Do Not Disturb** | `do_not_disturb_on/off` | Internal (NotificationServer) | `org.freedesktop.Notifications` (session bus) — filter |
+| **Mute** | `volume_off` / `volume_up` | PipeWire / PulseAudio | `pactl set-sink-mute` |
+| **Power Profile** | `battery_saver` / `speed` / `eco_leaf` | power-profiles-daemon | `net.hadess.PowerProfiles` (system bus) |
+| **Airplane Mode** | `airplanemode_active/inactive` | NetworkManager + BlueZ + rfkill | `org.freedesktop.NetworkManager` + `/dev/rfkill` |
+| **Night Light** | `nightlight` / `nightlight_off` | Gammastep / wlr-gamma-control | External process or Wayland protocol |
+| **Screen Cast** | `cast` / `cast_connected` | PipeWire + xdg-desktop-portal | `org.freedesktop.portal.ScreenCast` (session bus) |
+| **Auto-Rotate** | `screen_rotation` | iio-sensor-proxy | `net.hadess.SensorProxy` (system bus) |
+| **Hotspot** | `wifi_tethering` | NetworkManager | `org.freedesktop.NetworkManager` (system bus) |
+| **VPN** | `vpn_lock` | NetworkManager | `org.freedesktop.NetworkManager` — ActiveConnection type VPN |
+
+#### Tile Interaction — Two-Level
+
+Every **wide** tile supports two interaction levels:
+
+| Gesture | Action |
+|---|---|
+| **Tap body** | Toggle on/off |
+| **Tap chevron `›`** (or long-press) | Open sub-page / detail view |
+
+**Sub-pages** slide in from the right (Android-style) and contain expanded
+controls:
+
+- **Wi-Fi sub-page:** List of available networks, signal strength, connect/disconnect
+- **Bluetooth sub-page:** Paired devices list, scan for new devices, connect/disconnect
+- **Power Profile sub-page:** Radio buttons for `power-saver`, `balanced`, `performance`
+
+Sub-pages occupy the same panel space — they push the main content left with
+a slide animation and show a `←` back button in a header.
+
+#### Tile State Visual
+
+| State | Background | Icon/Text Color |
+|---|---|---|
+| **Active** | `ChiTheme.colors.primaryContainer` | `ChiTheme.colors.onPrimaryContainer` |
+| **Inactive** | `ChiTheme.colors.surfaceContainerHigh` | `ChiTheme.colors.onSurfaceVariant` |
+| **Unavailable** | Same as inactive, 50% opacity | Greyed out |
+
+---
+
+### 3.6 Third-Party Tiles (StatusNotifierItem) — **NEW**
+
+The **StatusNotifierItem (SNI)** specification is the freedesktop.org standard
+for system tray items. Chi Shell should act as a `StatusNotifierHost` to
+display third-party app indicators as tiles in Quick Settings.
+
+| Property | Value |
+|---|---|
+| D-Bus interface | `org.freedesktop.StatusNotifierWatcher` (session bus) |
+| Discovery | Register as `org.freedesktop.StatusNotifierHost`, listen for `StatusNotifierItemRegistered` signals |
+| Per-item interface | `org.kde.StatusNotifierItem` on the item's bus name |
+| Item properties | `IconName`, `Title`, `Status` (`Active`/`Passive`/`NeedsAttention`), `Menu` (via `com.canonical.dbusmenu`) |
+
+**Visual:**
+- Each SNI item gets a compact tile (icon only) in a dedicated row below the
+  built-in tiles, separated by a subtle divider
+- Items with `NeedsAttention` status get a badge dot
+- Tap → invoke `Activate()` method on the item
+- Long-press → show the item's `dbusmenu` as a popup context menu
+
+**Implementation approach:**
+- New C++ class: `StatusNotifierWatcher` — registers as host, tracks items
+- New C++ class: `StatusNotifierItemModel` — QAbstractListModel exposing icon,
+  title, status for each registered item
+- QML renders them in a Flow/Grid layout
+
+---
+
+### 3.7 Footer
+
+| Button | Icon | Action |
+|---|---|---|
+| **Settings** | `settings` | Launch system settings app (`gnome-control-center`, `systemsettings5`, or chi-settings) |
+| **Power** | `power_settings_new` | Show power menu flyout: Shutdown, Restart, Suspend, Log Out |
+| **User avatar** | User profile picture or `account_circle` | Show session info, switch user (future) |
+
+**Power menu flyout:**
+- Appears inline replacing the footer content with a row of labeled icon buttons
+- Actions via `systemd-logind` D-Bus: `org.freedesktop.login1.Manager`
+  - `PowerOff()`, `Reboot()`, `Suspend()`, `Hibernate()`
+- Pressing Escape or back → returns to normal footer
+
+---
+
+## 4. User Customization — **NEW**
+
+### 4.1 Edit Mode
+
+**Trigger:** Long-press anywhere on the tile grid, or tap a `✏️ Edit` button
+that appears at the bottom of the tile section.
+
+**In edit mode:**
+- All tiles get a subtle wobble animation (iOS-style) or highlighted border
+- Each tile shows a `✕` remove button in the corner
+- Tiles become drag-and-drop reorderable
+- A "+" button appears at the end of the grid to add tiles from the available pool
+- An "Available tiles" sheet slides up showing all tiles not currently in the grid
+- Tap a tile in the available pool → adds it to the grid
+
+### 4.2 Persistence
+
+User tile configuration is stored in:
+
+```
+$XDG_CONFIG_HOME/chi-shell/quicksettings.json
+```
+
+Schema:
+
+```json
+{
+  "version": 1,
+  "tiles": [
+    { "id": "wifi",       "size": "wide" },
+    { "id": "bluetooth",  "size": "wide" },
+    { "id": "dark_mode",  "size": "wide" },
+    { "id": "dnd",        "size": "compact" },
+    { "id": "mute",       "size": "compact" },
+    { "id": "power_profile", "size": "wide" },
+    { "id": "night_light",   "size": "compact" },
+    { "id": "airplane",      "size": "compact" }
+  ],
+  "sliders": {
+    "brightness": true,
+    "volume": true
+  },
+  "mediaPlayer": true
+}
+```
+
+- `size`: `"wide"` (half-width with label) or `"compact"` (quarter-width, icon only)
+- Tiles not in the list are hidden but available in edit mode
+- If the file is missing, a sensible default is used
+
+---
+
+## 5. Animations & Transitions
+
+| Transition | Type | Duration | Easing |
+|---|---|---|---|
+| Panel open | Slide down + fade in | 250ms | `Easing.OutCubic` |
+| Panel close | Slide up + fade out | 200ms | `Easing.InCubic` |
+| Tile toggle | Background color crossfade | 150ms | `Easing.InOutQuad` |
+| Slider drag | `SpringAnimation { spring: 14; damping: 1.0 }` | — | Spring |
+| Sub-page push | Slide from right | 200ms | `Easing.OutCubic` |
+| Sub-page pop | Slide to right | 180ms | `Easing.InCubic` |
+| Media card appear | Slide down + fade in | 200ms | `Easing.OutCubic` |
+| Edit mode wobble | Rotation oscillation ±1° | Looping | Sinusoidal |
+| Scrim | Fade to 40% black | 200ms | Linear |
+
+---
+
+## 6. D-Bus Integration Map
+
+Summary of all D-Bus interfaces used by Quick Settings:
+
+| Feature | Bus | Service | Interface | Notes |
+|---|---|---|---|---|
+| Battery | System | `org.freedesktop.UPower` | `org.freedesktop.UPower.Device` | Property polling |
+| Wi-Fi state | System | `org.freedesktop.NetworkManager` | `org.freedesktop.NetworkManager` | Property + signals |
+| Wi-Fi SSID/strength | System | (same) | (same) | `nmcli` async fallback with `--wait 0` |
+| Wi-Fi toggle | System | (same) | `org.freedesktop.DBus.Properties.Set` | `WirelessEnabled` |
+| Bluetooth state | System | `org.bluez` | `org.bluez.Adapter1` | `Powered` property |
+| Bluetooth toggle | System | (same) | `org.freedesktop.DBus.Properties.Set` | `Powered` |
+| Volume get | — | — | — | `pactl get-sink-volume` (async) |
+| Volume set | — | — | — | `pactl set-sink-volume` (fire-and-forget) |
+| Mute get/set | — | — | — | `pactl get-sink-mute` / `set-sink-mute` |
+| Brightness get | — | — | — | sysfs `/sys/class/backlight/*/brightness` |
+| Brightness set | — | — | — | `brightnessctl set` |
+| Media players | Session | `org.mpris.MediaPlayer2.*` | `org.mpris.MediaPlayer2.Player` | Signals, no polling |
+| Tray items (SNI) | Session | `org.kde.StatusNotifierWatcher` | `org.kde.StatusNotifierItem` | Signals, no polling |
+| Power profiles | System | `net.hadess.PowerProfiles` | `net.hadess.PowerProfiles` | Property + signals |
+| Session actions | System | `org.freedesktop.login1` | `org.freedesktop.login1.Manager` | Shutdown/Reboot/Suspend |
+| Screen cast | Session | `org.freedesktop.portal.Desktop` | `org.freedesktop.portal.ScreenCast` | Status detection |
+| Auto-rotate | System | `net.hadess.SensorProxy` | `net.hadess.SensorProxy` | `HasAccelerometer` |
+| DND | Session | Internal | `org.freedesktop.Notifications` | Filter in NotificationServer |
+| Night light | — | — | — | `gammastep` / `wlsunset` process control |
+
+---
+
+## 7. Performance & Smart Polling
+
+### Current Optimizations (keep)
+
+- **Async subprocess execution** with per-command backoff tracking
+  - 0–2 failures: always retry
+  - 3–9 failures: try once every 4 poll cycles (~60s)
+  - 10+ failures: disable entirely
+- **Deduplication:** `m_runningCommands` set prevents overlapping processes
+- **2-second timeout** per subprocess to prevent hangs
+- **D-Bus property reads** (battery, NM state, BlueZ) are synchronous but fast
+  (~1ms each) — acceptable at 15s interval
+
+### New Optimizations (implement)
+
+| Optimization | Description |
+|---|---|
+| **Signal-driven updates** | Subscribe to `PropertiesChanged` on NM, BlueZ, UPower — poll only as fallback |
+| **Adaptive poll interval** | When panel is **closed**: poll every 30s (status bar only needs battery/wifi icon). When panel is **open**: poll every 5s for responsive sliders |
+| **Lazy sub-page loading** | Wi-Fi network list and Bluetooth device scan only trigger when sub-page is opened |
+| **MPRIS is zero-poll** | Entirely signal-driven — no timer needed |
+| **SNI is zero-poll** | Entirely signal-driven — no timer needed |
+| **Slider coalescing** | During drag, coalesce `setBrightness`/`setVolume` calls — apply at most once per 50ms |
+| **Thumbnail caching** | Cache MPRIS album art in `$XDG_CACHE_HOME/chi-shell/mpris-art/` |
+| **Hardware detection at startup** | On init, detect: has battery? has backlight? has BT adapter? has accelerometer? Store as flags, hide irrelevant tiles permanently |
+
+---
+
+## 8. Keyboard & Accessibility
+
+| Key | Action |
+|---|---|
+| `Super+A` | Toggle Quick Settings open/close |
+| `Escape` | Close panel (already implemented) |
+| `Tab` / `Shift+Tab` | Navigate between tiles/sliders |
+| `Space` / `Enter` | Activate focused tile |
+| `Arrow keys` | Navigate tile grid (2D) |
+| `Arrow Left/Right` on slider | Adjust value in 5% increments |
+| `Home` / `End` on slider | Jump to min/max |
+
+**Screen reader:**
+- All tiles expose `Accessible.name` and `Accessible.role: Button`
+- Sliders expose `Accessible.role: Slider` with `Accessible.value`
+- Media card exposes now-playing info as `Accessible.description`
+
+---
+
+## 9. Scrim & Dismissal
+
+| Trigger | Action |
+|---|---|
+| Click on scrim (dark overlay outside panel) | Close panel |
+| Press `Escape` | Close panel |
+| Swipe up on panel | Close panel (future touch gesture) |
+| Opening Notification Center or App Launcher | Auto-close Quick Settings (mutual exclusivity — already implemented in ShellManager) |
+| Click on a tile that launches an app | Close panel after 300ms delay |
+
+---
+
+## 10. Theming
+
+Quick Settings inherits from `ChiTheme` and respects the system-wide Material You
+color tokens:
+
+| Token | Usage |
+|---|---|
+| `surface` | Panel background |
+| `surfaceContainerHigh` | Inactive tile / slider track background |
+| `primaryContainer` | Active tile / slider fill |
+| `onPrimaryContainer` | Active tile icon + text |
+| `onSurface` | Header time text |
+| `onSurfaceVariant` | Secondary text, inactive icons |
+
+**Dark mode toggle** in the tile grid instantly recolors the entire panel
+via `ChiTheme.toggleDarkMode()`.
+
+---
+
+## 11. Future Considerations
+
+Items **not** in scope for v0.3 but designed to be possible:
+
+| Feature | Notes |
+|---|---|
+| **Resizable tiles** | Allow user to toggle any tile between wide/compact/large (like macOS Tahoe) |
+| **Multi-panel pages** | Swipeable pages of tiles for power users (like macOS custom panels) |
+| **Third-party tile API** | Apps install `.desktop`-like files to `$XDG_DATA_HOME/chi-shell/tiles/` to register custom tiles with icon + D-Bus action |
+| **Smart home integration** | Dedicated tile page for IoT devices via MQTT or Matter bridge |
+| **Live weather/info tile** | A double-wide tile showing weather or calendar next event |
+| **Tile badges** | Notification count badge on tiles (e.g. "3 BT devices connected") |
+| **Per-output panels** | On multi-monitor setups, Quick Settings follows the active output |
+
+---
+
+## 12. File Structure (new/modified)
+
+```
+src/
+  MprisController.h / .cpp          # NEW — MPRIS D-Bus client
+  StatusNotifierHost.h / .cpp        # NEW — SNI watcher + host
+  StatusNotifierItemModel.h / .cpp   # NEW — QAbstractListModel for SNI items
+  PowerProfilesClient.h / .cpp       # NEW — power-profiles-daemon D-Bus client
+  SystemStatus.h / .cpp              # MODIFIED — add signal subscriptions, adaptive polling
+  ShellManager.h / .cpp              # MODIFIED — register new context properties
+
+qml/
+  QuickSettings.qml                  # MODIFIED — add media card, new tiles, edit mode
+  SettingsTile.qml                   # EXISTING — minor tweaks for chevron + states
+  quicksettings/
+    MediaCard.qml                    # NEW — MPRIS now-playing widget
+    BrightnessSlider.qml             # NEW — extracted component
+    VolumeSlider.qml                 # NEW — extracted component
+    TileGrid.qml                     # NEW — tile grid with edit mode
+    SubPage.qml                      # NEW — slide-in detail view container
+    WifiSubPage.qml                  # NEW — network list
+    BluetoothSubPage.qml             # NEW — device list
+    PowerProfileSubPage.qml          # NEW — profile selector
+    AudioOutputSubPage.qml           # NEW — sink picker
+    TileEditSheet.qml                # NEW — edit mode overlay
+    PowerMenu.qml                    # NEW — shutdown/restart/suspend flyout
+    SniTileRow.qml                   # NEW — StatusNotifierItem tile row
+```
+
+---
+
+*End of spec.*
+```
+
+This covers everything you need — from the MPRIS media standard and StatusNotifierItem tray spec (the two big freedesktop.org standards you were missing), to power profiles, tile customization, sub-pages, edit mode, animation specs, keyboard access, adaptive polling, and the full D-Bus integration map. All grounded in what actually exists on the Linux desktop today. Ready to start implementing whenever you are. 🚀

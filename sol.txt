@@ -1,0 +1,330 @@
+The user wants me to start building the MVP for the Quick Settings and Status Bar. Let me analyze what's most essential and start implementing.
+
+Let me plan the approach:
+
+First, I need to restructure the project - create src/statusbar/ and qml/statusbar/ directories
+Start with the most essential features
+The most essential features for MVP:
+
+SystemStatus rewrite - Pure D-Bus for WiFi (no nmcli), hardware detection (no battery on desktops), proper async
+StatusBar.qml - Clean top bar
+QuickSettings.qml - Refactored into components
+WiFi sub-panel - Click to expand and see available networks, connect to them
+
+I'll tackle this in two batches: first the core infrastructure with hardware detection and a rewritten SystemStatus using pure D-Bus, then the WiFi panel for network discovery and connection. I need to move the existing SystemStatus files into the new src/statusbar/ directory structure.
+
+For the QML side, I'm splitting QuickSettings and StatusBar into modular components under qml/statusbar/, then updating CMakeLists.txt and ShellManager to reference the new paths. I'll start by building out the hardware detector, the refactored SystemStatus with D-Bus integration, and the split QML components. I'm breaking this down into batches to make it manageable—starting with the core restructuring and WiFi functionality, then building out from there. For the WiFi panel specifically, I need to query available networks through D-Bus, display signal strength, and handle the connection flow with a password dialog when needed.
+
+The D-Bus approach involves requesting a scan on the WiFi device, then reading the access point properties like SSID and security flags. For connecting, I'll either activate a known network or add and activate a new one with credentials.
+
+Setting up the directory structure and starting to write the implementation...
+
+Defining the HardwareDetector class... Finishing up the getter for the recorder check and adding a detect method to run the hardware checks, then defining private helper functions for D-Bus service and command detection along with member variables to track each capability.
+
+Now I'm thinking through the architecture—SystemStatus should stay focused on polling system state, but I need to handle WiFi network scanning and connection management separately. I could create a dedicated WifiManager or WifiNetworkModel class to keep things modular, or keep it simpler by putting the WiFi logic directly in SystemStatus for now.
+
+Let me step back and focus on what actually matters: getting the status bar and quick settings panel working properly with real D-Bus WiFi support, then adding features incrementally. I'll organize the QML files into a cleaner directory structure...
+
+Organizing the file layout... statusbar/VolumeSlider.qml`
+
+qml/statusbar/TileGrid.qml
+qml/statusbar/SettingsTile.qml
+qml/statusbar/QSFooter.qml
+qml/statusbar/WifiPanel.qml - the WiFi network list/connect panel
+For C++:
+
+src/statusbar/SystemStatus.h/.cpp - core system status
+src/statusbar/WifiNetworkModel.h/.cpp - WiFi network list
+And updates to:
+
+src/ShellManager.h/.cpp - use new paths, register new objects
+CMakeLists.txt - add new source files
+Let me also update the spec.md into the project root.
+
+Alright, I'm going to write this all out cleanly and professionally. Now I'm thinking through how to get the WiFi SSID directly via D-Bus without relying on nmcli. I need to query NetworkManager's primary connection object and check if it's a WiFi connection...
+
+Writing D-Bus WiFi query code... Iterating through the available devices to find WiFi adapters by checking the device type, then I can work with whichever one is available for scanning operations.
+
+Now I'm storing the WiFi device path and setting up the wireless interface to request a network scan, then iterating through the discovered access points to gather their details.
+
+Extracting access point properties like SSID, signal strength, and security flags to determine if the network is encrypted. For connecting to WiFi, I can either activate a saved connection or create new connection settings with the wireless configuration.
+
+Now I'm refining the D-Bus API call structure to properly handle the nested dictionary format that NetworkManager expects, making sure the security settings are correctly formatted when a password is provided.
+
+Actually, I realize I should reconsider the approach here—using nmcli for the connection itself is simpler and more reliable since it handles all the type complexity, while I can keep D-Bus for status monitoring and scanning. The original code worked fine with nmcli for connecting, and the real issue was the slow scanning with nmcli dev wifi list. So I'll split the responsibilities: D-Bus for reading status and performing scans via RequestScan, but use nmcli's connect command for actually establishing the connection since it abstracts away all the variant type handling.
+
+Now I'm mapping out all the files I need to create and modify—the header and implementation files for the detector and models, the QML components for the UI, and the spec documentation.
+
+Given the scope, I should tackle this strategically by implementing the first batch of features really well rather than trying to do everything at once. I'm realizing the ShellManager already handles StatusBar and QuickSettings as separate surfaces, so I just need to update the qmlPath calls to point to the new statusbar/ subdirectory structure. Let me trace through what paths need updating and make sure the context properties are registered correctly for the new components.
+
+Now I'm thinking through the build configuration—I'll need to add the statusbar directory to the include paths in CMakeLists.txt so the compiler can find headers in that subdirectory. I'm also considering what roles the WifiNetworkModel needs to expose...
+
+Defining model roles... I need to make sure I'm registering the D-Bus metatypes properly for QDBusObjectPath and related types, then I can start writing out the implementation with the key changes: battery existence checks, pure D-Bus WiFi reading, and conditional display for features like brightness based on hardware availability.
+
+For the WiFi approach, I'm moving away from the subprocess calls that trigger scans and block for seconds—instead I'll query the NetworkManager D-Bus interface directly to get the active connection and its properties without the performance penalty.
+
+Writing the D-Bus network polling code... Extracting the WiFi access point details...
+
+Now I'm checking if any of the network properties have changed, and if so, I'll update the member variables and emit a signal to notify listeners. This approach using D-Bus is clean and avoids subprocess overhead.
+
+For this response, I should focus on the essential features first—the directory structure and the HardwareDetector component in C++, then add more features incrementally as the user suggested.
+
+Looking ahead, I need to implement the SystemStatus rewrite with pure D-Bus WiFi detection, create a WifiNetworkModel for scanning, split the QML components into a dedicated statusbar directory, build out the WifiPanel with network listing and password entry, update the ShellManager to coordinate everything, and adjust the CMakeLists.txt accordingly. The two main features here are the restructured D-Bus-based system status and the WiFi panel with connection capabilities.
+
+For the UI flow, when the user interacts with the WiFi tile in QuickSettings, the WiFi panel should slide in from the right as a sub-panel, replacing the current view temporarily.
+
+I'm thinking about the interaction model—similar to Android, tapping the WiFi tile itself toggles it on/off, while tapping an expand arrow opens the detailed WiFi panel. So I need to add an expandable property and onExpandClicked signal to the SettingsTile component, and implement a state machine in QuickSettings to handle switching between the tiles view and individual detail views like WiFi or Bluetooth, with smooth slide transitions between them.
+
+Let me start writing the implementation now, keeping the scope focused.
+
+I'm prioritizing the core pieces: setting up the directory structure, building a hardware-aware SystemStatus that talks directly to D-Bus for WiFi, creating a WifiNetworkModel, splitting the QML into separate components, adding the WiFi sub-panel, and updating the build system. I'll write concise but complete code for each piece.
+
+Now I need to verify the QML import paths work correctly from subdirectories—the engine adds the qml directory to the import path, so components in qml/statusbar/ should be able to import Chi 1.0 and other modules without issues. I need to figure out where SettingsTile currently lives and move it to qml/statusbar/ if it's not already there, then ensure that Icon and ChiTheme remain accessible from the new location—either through the existing import paths or by using relative imports. Looking at the imports in the user's file, Icon, ChiTheme, and SettingsTile are all coming from the Chi 1.0 module, so moving QuickSettings.qml to a subdirectory shouldn't break those references. The real issue is whether SettingsTile needs to be accessible from its new location—if it's part of the Chi module, it'll work fine, but if it's a local file in qml/, I'd need to either move it to the subdirectory too or add it to the module.
+
+The cleanest approach is to move all status bar-specific components like SettingsTile.qml into qml/statusbar/ alongside the other status bar files, keeping shared components like Icon and ChiTheme in the main Chi module. Then I just need to update the ShellManager to load from the new paths.
+
+Now I'm defining the WifiNetworkModel class with the necessary properties and roles...
+
+Continuing with the model implementation...
+
+For the connection logic, I'll use nmcli to handle WiFi connections since the NetworkManager D-Bus API is quite involved. I need to make sure this runs asynchronously like the rest of the code. Also, I should clean up the old SystemStatus files and consolidate everything into the statusbar directory, then update the CMake include paths so existing includes still work without needing to change every reference.
+
+Now I'm planning out the exact bash commands to create the new directory structure, remove the old files, and generate all the new C++ and QML files...
+
+Still writing file creation commands... I need to stop planning and actually write out the implementation now. I'll organize this as a series of bash commands that create all the necessary files and directories, being strategic about file sizes—some can be concise while others need to be complete. For the QML components, I'm restructuring QuickSettings.qml to use subcomponents and add the WiFi panel while keeping the same visual style, and I'll place the new SettingsTile.qml in the statusbar directory to avoid conflicts with any existing version.
+
+Writing the StatusBar component... I see—StatusBar.qml is its own ShellSurface window loaded separately, so it needs to fill that 36px tall window at full width. QuickSettings.qml is similarly a standalone overlay. Now I'm thinking through what each component actually needs to do: HardwareDetector should handle battery, backlight, wifi, bluetooth, and power profiles, while SystemStatus pulls that hardware data plus D-Bus info for the indicators.
+
+I need WifiNetworkModel to scan and list networks, StatusBar.qml to display time and indicators with a click-to-open gesture, and QuickSettings.qml as a full-screen overlay with a scrim and panel. The quick settings panel itself will have StatusHeader showing the clock and date, then BrightnessSlider and VolumeSlider for controls, a TileGrid with SettingsTiles that can expand, and a footer with settings and power buttons. WifiPanel will handle the network list and password entry.
+
+Let me start writing all of these components now. I need to write out the actual implementation now. I don't have the full CMakeLists.txt contents, so I'll provide the necessary additions for the build configuration. For the WiFi panel, I'm creating a list view that displays available networks with signal strength indicators, and I'll add a password dialog for connecting to secured networks. I'm realizing I need to avoid QtQuick.Controls since the project only imports QtQuick and Chi, so I'll build the password dialog using raw QML primitives with a Rectangle for the text input field instead.
+
+Now I'm planning out the C++ side: I'll create a HardwareDetector class that checks for battery support via UPower, backlight through the sysfs directory, WiFi and Bluetooth device availability, power profile services, and various command-line tools like grim, slurp, and gammastep using the standard executable finder.
+
+Then SystemStatus will build on top of that, skipping battery polling if no battery exists, using pure D-Bus for network queries instead of command-line tools, and conditionally checking Bluetooth and backlight based on what hardware was detected.
+
+For the WiFi side, I'm building a QAbstractListModel that scans NetworkManager for available networks, handles connections asynchronously, and tracks network properties like signal strength and security status.
+
+Now I need to handle the D-Bus type registration properly—QList<QDBusObjectPath> needs to be registered as a meta-type so Qt can marshal the AccessPoints array correctly when reading from NetworkManager. I'm realizing the DBus property extraction is getting unnecessarily complicated with variant unpacking, so let me simplify by registering the object path list type and using Qt's built-in casting to directly retrieve the access points. I'm finishing the array iteration logic and then realizing there's actually a cleaner approach—I can register the metatype for the object path list and use the simpler property() method instead, which handles the D-Bus type conversion automatically.
+
+But to be safe, I'll stick with the QDBusArgument parsing since it's more reliable. Now I need to actually write the code instead of planning further. I also need to handle the NM Devices property the same way, and for WiFi discovery I'll iterate through devices checking their DeviceType to find WiFi ones, caching the device path for later use. I'm thinking this logic belongs in WifiNetworkModel or SystemStatus rather than HardwareDetector.
+
+Actually, I can simplify HardwareDetector significantly. For WiFi, I just need to check if NetworkManager's WirelessEnabled property is accessible. For Bluetooth, I'll verify the BlueZ adapter interface is valid. For battery detection, I'm checking the UPower interface.
+
+Writing hardware detection checks...
+
+For power profiles and tools, I'm doing straightforward checks—verifying the PowerProfiles D-Bus interface exists and searching the PATH for executables like grim. This is a one-time initialization, nothing complex.
+
+Now I'm ready to write the actual bash script. Let me estimate the file sizes: HardwareDetector header around 50 lines, implementation roughly 80 lines, and SystemStatus header similar to before at about 100 lines.
+
+Estimating remaining components...
+
+Now I'm refining the WiFi network deduplication logic to show only the strongest signal for each SSID, filtering out hidden networks in the process.
+
+Finishing the network loading...
+
+Now I'm thinking through what needs to change in ShellManager — I'll need to update the include paths, modify the constructor to initialize the new HardwareDetector and WifiNetworkModel objects, register them as context properties for QML, and adjust the surface creation to point to the new file locations. Since there are quite a few changes scattered throughout the file, I should provide the complete updated ShellManager rather than a piecemeal diff. I also need to make sure the user knows to remove the old files from their original locations and update CMakeLists.txt accordingly. I'm laying out the directory structure and listing all the new files I need to create—five C++ files for the statusbar components and nine QML files for the UI layer.
+
+Now I'm realizing I need to see what the current StatusBar.qml looks like to understand how it's structured, since the user hasn't shown me the existing implementation. Based on the ShellManager setup, I know it's a separate surface positioned at the top of the screen with a fixed height of 36 pixels, so I'll design a clean version from scratch that fits that constraint.
+
+I should also be careful to only modify the statusbar-related files and leave the other QML files like Desktop.qml and Taskbar.qml untouched. Since QuickSettings.qml and TileGrid.qml are already in the qml/statusbar/ directory, they can reference SettingsTile directly without import issues.
+
+One more consideration—I need to check how the Icon component is being used, since I saw it referenced with properties like source and size, but the definition got cut off. The Icon component should be accessible through the Chi module import, so I can use it directly in my QML files. Now I'm building the password input dialog for the WiFi panel—I need a custom text input field with a styled rectangle background since I'm not using QtQuick.Controls.
+
+Writing the password input...
+
+For the WiFi tile interaction, I'm thinking the best approach is to let tapping the tile itself toggle WiFi on/off, while a separate chevron or arrow icon would open the detailed WiFi sub-panel—that way users get quick access to the toggle without navigating away.
+
+Adding an expandable chevron to SettingsTile...
+
+Now I'm actually starting to write the complete implementation. But wait—I need to reconsider the WiFi detection approach. The old nmcli method worked correctly but had performance issues, so my D-Bus implementation should deliver the same accuracy without the lag. Let me verify the async command structure is handling the WiFi query properly. I see the issue now—the async callback was capturing state by value, so by the time it executed, the variables might have been stale. My pure D-Bus approach sidesteps this entirely. Let me start writing out the implementation, beginning with the C++ foundation files that handle hardware detection and system status polling through D-Bus.
+
+Now I'm laying out the QML structure with the status bar, quick settings panel, and various UI components like sliders and tiles, plus a dedicated WiFi panel for network management. For the WiFi model specifically, I need to handle the D-Bus type conversions properly when reading access point data.
+
+Writing model implementation... Extracting the access point array from the DBus variant and iterating through each one to collect their object paths, then querying individual AP properties like SSID and signal strength through the DBus interface.
+
+Now I need to handle the scan timing—when the WiFi panel opens, I'll trigger a scan request, but since it's asynchronous, I'll show a scanning indicator, wait a couple seconds for results to populate, then read the access points. This gives a reasonable user experience without needing to wire up signal handlers.
+
+Writing the scan implementation... Still writing connection logic... I'm thinking through the disconnect functionality—I can use nmcli dev disconnect for the MVP and skip the "Forget" feature for now. To get the WiFi device interface, I'm querying NetworkManager's D-Bus interface to retrieve the device path and extract the interface name.
+
+Now I'm ready to write the actual implementation. I'm going to create a bash script that sets up all the necessary directories and files sequentially, starting with the HardwareDetector component.
+
+Writing implementation files... Defining the HardwareDetector class with Q_PROPERTY macros for hardware capabilities and getter methods to check for battery, backlight, WiFi, and Bluetooth support.
+
+Continuing with the implementation file where I'm setting up the constructor to call the detect method and beginning to define the hardware detection logic using DBus interfaces. Checking for WiFi support through NetworkManager's D-Bus interface, then verifying Bluetooth adapter availability, and finally detecting power profile management capabilities... Writing the header file... I'm defining the rest of the Q_PROPERTY declarations for do-not-disturb mode, then setting up the public interface with getters, setters, and signals for all the system status changes. Now I'm reconsidering the constructor approach—instead of requiring a HardwareDetector pointer, I should make it optional to avoid breaking the existing ShellManager integration.
+
+Actually, I'll just pass it directly in the constructor since ShellManager already creates HardwareDetector first anyway. For the network polling function, I'm querying the D-Bus interface to check if WiFi is enabled and retrieve the current connection status.
+
+Continuing with the D-Bus queries... Writing D-Bus helper functions... Finishing the device enumeration loop, then iterating through each device to check its type and extract the WiFi interface details when found. Now moving on to handle AccessPoints similarly...
+
+Writing the accessor method...
+
+Then I need to retrieve the active access point by querying the WiFi device's ActiveAccessPoint property through DBus to determine which network is currently connected.
+
+Now I'm ready to implement the full code. For the QML interface, I'm sketching out a WiFi panel layout with a header containing navigation and a scan button, followed by a list of available networks where the connected one is marked with a checkmark. I'm going to use a state-based approach with QML where switching between the main panel and WiFi panel is handled through opacity animations and visibility toggling. Now I'm ready to implement the full structure across the necessary files. Continuing with more QML components extracted from QuickSettings—volume and brightness sliders, a tile grid system, individual setting tiles, and a footer—plus a new WiFi panel. Then I need to update ShellManager to integrate the hardware detector and wire everything together.
+
+Now I'm working through the ShellManager modifications...
+
+Writing the code files... Writing the complete implementation...
+
+For the WiFi connection logic, I need to handle both saved networks and new connections—nmcli dev wifi connect will work for both cases, using stored credentials for known networks and prompting or accepting the password for new ones. I need to make sure the QML imports are set up correctly—components in qml/statusbar/ will auto-discover each other by filename, and the Chi 1.0 import will provide access to the shared theme and icon components from the parent directory.
+
+Now I'm handling the edge case where there's no WiFi device available—I'll leave the device path empty and check for it before attempting to scan, so the model won't crash. For the password input, I'm relying on the keyboard exclusive mode of the QS overlay to handle virtual keyboard input, and I'll auto-focus the text field when the password dialog appears, with Enter key submission. I'm structuring WifiPanel.qml to show the password dialog inline below the selected network.
+
+Building the QML component structure...
+
+I'm reconsidering the dialog approach—instead of a separate overlay, I should make the network list items expandable so that when you tap a secured network, it reveals a password input field right below it in the list. This feels more modern and keeps everything within the natural flow of the interface.
+
+Actually, I'm overthinking this. Let me just go with a straightforward dialog that appears when you tap a secured network, and commit to that approach. The WifiPanel will replace the main quick settings content while keeping the status header and footer visible.
+
+Building the panel structure...
+
+I also need to reset the active panel back to "main" whenever Quick Settings closes and reopens, so users don't get stuck in the WiFi view. I'll wire up a connection to detect when the panel opens and reset the state accordingly. I'm connecting to the quickSettingsOpenChanged signal instead to reliably trigger the panel reset and refresh whenever the overlay opens, since the visibility property might not always change as expected. Now I'm ready to write out the complete bash script with all the file updates organized into clear sections. For the CMakeLists.txt, I don't have the full file so I'll provide targeted instructions on what to add—mainly the new source files from the statusbar directory and ensuring the include paths are set up correctly. I'm planning to use relative includes like #include "statusbar/SystemStatus.h" which should work if src is already in the include directories, and I'll note what changes are needed if it isn't.
+
+Before writing out the files, I want to verify the QML context properties are correct: systemStatus for the SystemStatus object, wifiNetworkModel for the WiFi model, and hwDetector for the hardware detector, so the QML can access things like systemStatus.wifiEnabled and hwDetector.hasBattery without issues.
+
+I'm also thinking through the back navigation in the WiFi panel—when the user taps back, the quick settings should animate smoothly to the main view using opacity transitions rather than abrupt changes.
+
+I need to stop planning features and just write the code now. Let me check one thing though: whether QDBusInterface::property() properly handles QDBusObjectPath type properties, since that might affect how I retrieve certain D-Bus values.
+
+Looking at how Qt D-Bus handles this—when I call property("PrimaryConnection"), it should invoke the D-Bus Properties.Get method, receive the object path variant, and convert it to a QDBusObjectPath that I can extract with .value<QDBusObjectPath>(). For byte arrays like Ssid, it should return QByteArray directly, and for single bytes like Strength, I can convert to uint with .toUInt(). This approach should work across the board.
+
+Now I'm realizing there's a subtlety with the Type property on the Connection.Active interface—it returns the connection type as a string, which means I need to handle that differently than I initially thought.
+
+Let me verify the D-Bus API docs... yes, Connection.Active.Type returns a string like "802-11-wireless" or "802-3-ethernet", so calling .toString() on the property should work fine.
+
+I also need to account for the case where the primary connection is ethernet instead of WiFi—in that scenario, connType would be "802-3-ethernet" and we'd skip the WiFi branch entirely, leaving the SSID empty. The network icon logic needs to handle this gracefully.
+
+Writing the network icon method... Still refining the network logic...
+
+I'm realizing the issue: m_wifiConnected tracks overall network state based on NetworkManager, but it gets set to true for both WiFi and ethernet connections. The real distinction should be whether we have an actual WiFi connection with an SSID, versus just being connected through ethernet. So I'll keep the variable names for compatibility but adjust the logic—if there's no WiFi adapter, I'll set the SSID to "Ethernet" when connected, and if there is a WiFi adapter, I'll only report WiFi status when there's an actual SSID present.
+
+Now I'm writing the icon selection logic that checks WiFi state in order: first whether WiFi is disabled, then whether we're connected at all, then whether we're on ethernet versus WiFi, and finally the signal strength to pick the right icon.
+
+I need to make sure the D-Bus code correctly identifies the primary connection type when both WiFi and ethernet are available. Now I'm ready to finalize everything and add the necessary Q_INVOKABLE decorators to the refresh and network scanning methods so QML can call them directly.
+
+For the WifiNetworkModel, I should also expose the connectingSSID as a property so the UI can display a connecting state. And for the password dialog in the panel, I need to ensure the text input gets keyboard focus when it appears, either through Component.onCompleted or by responding to visibility changes.
+
+Writing the implementation now... I'm estimating the total line count across all the files I need to write—around 1540 lines total—and that's manageable. Rather than duplicating the entire ShellManager files, I'll provide just the changes needed as a patch section at the end to keep things concise. Now I'm ready to start writing out each file.
+
+Building the StatusBar.qml component... Building the status bar layout...
+
+I'm styling the battery percentage text to match the theme, then adding a clickable area that toggles the quick settings panel. Finally, I'm setting up a timer that updates the time and date display every minute.
+
+Now I'm reconsidering where the click target should be—it makes sense to make the entire status bar clickable to match GNOME's pull-down behavior, rather than limiting it to just one section. I'm moving on to build the QuickSettings overlay component that will handle the main panel and its different states.
+
+Building the QML component... Building the QML layout... Writing QML layout code... Building the header panel... Writing the toggle switch...
+
+Now I'm adding the separator line and the network list section that displays when WiFi is enabled, using a repeater to show available networks from the model. I'm also including an empty state message that appears when WiFi is on but no networks are found and scanning isn't active.
+
+Building the password dialog... Writing the dialog buttons... I'm defining the connect function that takes the password input and initiates the network connection, then clears the dialog. On component load, I need to refresh the network list and trigger a scan. Actually, I realize I should use a Repeater inside the Flickable's Column rather than a ListView, since the Flickable already handles scrolling and the Repeater will just generate the delegate items for each network.
+
+I also need to fix the signal syntax—it should be signal back() not property signal back(). And for the model's row count, I can't rely on model.rowCount in QML; I'll need to use model.count for ListModel or add a count property to the C++ model.
+
+For the Repeater, I can check networkRepeater.count directly to show a "No networks found" message when the list is empty. Now I'm setting up the WifiNetworkModel class with the necessary properties like scanning status and connecting SSID, along with defining the role enums...
+
+Defining model roles... Implementing the WiFi model class... Parsing the device list from the DBus reply and iterating through each device to find the one with DeviceType 2, which indicates a WiFi adapter, then storing its path.
+
+Now I'm setting up the scan request mechanism—when called, it marks the scanning state as active, invokes the RequestScan method on the WiFi device through DBus, and schedules a reload after a few seconds to fetch the updated network list. Fetching all available access points via DBus and parsing the response into a list... Writing the deduplication logic... Setting up the connection callback to handle the process completion, clearing the connecting state, and emitting either a success result with a reload timer or an error message based on the exit code, then starting the nmcli process with the connection arguments.
+
+Now I'm implementing the disconnect function that clears the WiFi interface and schedules a reload, followed by the model methods for row count and data retrieval that handle the SSID and signal strength roles.
+
+Finishing the signal strength mapping...
+
+Now I'm thinking through how to handle the data conversion in Qt6 — since QVector is just an alias for QList, I can directly assign the sorted values from the map without needing an explicit conversion.
+
+I need to wrap the assignment with beginResetModel() and endResetModel() to properly notify the view of changes.
+
+Now I'm updating the ShellManager includes to reference the new statusbar subdirectory structure.
+
+Setting up the member variables and initialization for the hardware detector and WiFi network model, then registering them as context properties so the QML can access them.
+
+Configuring the status bar source and setting up the remaining surfaces...
+
+Now I'm planning out the response structure with a bash script to handle the file modifications, followed by CMakeLists.txt instructions and cleanup steps. I also need to add the expandable tile feature to SettingsTile.qml...
+
+Writing QML component code... Writing component layout... I'm realizing the MouseArea layering could get complicated, so I should simplify the interaction model. For expandable tiles, I'll divide the clickable area so the main content triggers the toggle action while the right edge triggers the expand action. For non-expandable tiles, the entire surface should be clickable.
+
+Refining the MouseArea structure...
+
+Now I need to think about which files to include in the output and whether to tackle the restructuring alongside the two new features the user requested, since the restructuring is foundational. I'm mapping out the complete file structure for this implementation—fifteen files total across the C++ backend and QML frontend, with the larger files being the WiFi network model and the WiFi panel UI itself.
+
+Now I'm ready to write out all the changes. For the WiFi panel behavior, I've decided to keep the user on the panel after connecting so they can watch the connection status update in real time, and I'll display error messages briefly when a connection fails using the connection result signal.
+
+Setting up error handling with signal connections...
+
+Alright, let's build. Batch 1: Project restructure + Pure D-Bus system status + WiFi network panel with connect.
+
+Bash
+
+#!/bin/bash
+set -e
+echo "═══ Chi Shell — Batch 1: Restructure + WiFi Panel ═══"
+
+# ── Create directory structure ────────────────────────────
+mkdir -p src/statusbar
+mkdir -p qml/statusbar
+
+# ══════════════════════════════════════════════════════════
+# C++ BACKEND
+# ══════════════════════════════════════════════════════════
+
+# ── 1. HardwareDetector — one-time capability scan ───────
+cat > src/statusbar/HardwareDetector.h << 'EOF'
+#ifndef HARDWAREDETECTOR_H
+#define HARDWAREDETECTOR_H
+
+#include <QObject>
+
+class HardwareDetector : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool hasBattery    READ hasBattery    CONSTANT)
+    Q_PROPERTY(bool hasBacklight  READ hasBacklight  CONSTANT)
+    Q_PROPERTY(bool hasWifi       READ hasWifi       CONSTANT)
+    Q_PROPERTY(bool hasBluetooth  READ hasBluetooth  CONSTANT)
+    Q_PROPERTY(bool hasPowerProfiles READ hasPowerProfiles CONSTANT)
+
+public:
+    explicit HardwareDetector(QObject *parent = nullptr);
+
+    bool hasBattery()       const { return m_hasBattery; }
+    bool hasBacklight()     const { return m_hasBacklight; }
+    bool hasWifi()          const { return m_hasWifi; }
+    bool hasBluetooth()     const { return m_hasBluetooth; }
+    bool hasPowerProfiles() const { return m_hasPowerProfiles; }
+
+private:
+    void detect();
+
+    bool m_hasBattery       = false;
+    bool m_hasBacklight     = false;
+    bool m_hasWifi          = false;
+    bool m_hasBluetooth     = false;
+    bool m_hasPowerProfiles = false;
+};
+
+#endif
+EOF
+
+cat > src/statusbar/HardwareDetector.cpp << 'EOF'
+#include "HardwareDetector.h"
+#include <QDBusInterface>
+#include <QDBusConnection>
+#include <QDir>
+#include <QDebug>
+
+HardwareDetector::HardwareDetector(QObject *parent)
+    : QObject(parent)
+{
+    detect();
+}
+
+void HardwareDetector::detect()
+{
+    // Battery — UPower DisplayDevice, Type==2 means battery
+    {
+        QDBusInterface 
+Something went wrong with this response, please try again.
+
+Trace ID: e344c990-2479

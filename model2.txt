@@ -1,0 +1,194 @@
+Great question — this is a really important architectural decision point. Let me research what actually exists on the Linux/freedesktop side for third-party app integration into shell panels.Alright, this is a great conversation to have. Let me lay out the full landscape of **what exists, what you're missing, and how to approach the innovation you want**.
+
+---
+
+# 🗺️ The Linux D-Bus Ecosystem: Standards Your Quick Settings Should Integrate
+
+There is **no single "Quick Settings tile API"** on Linux like Android's `TileService` or macOS 26's `ControlCenter` widget API. Instead, the Linux ecosystem has a **collection of D-Bus specifications** that, when combined, give you a complete Quick Settings story. Here's the map:
+
+---
+
+## ✅ What You Already Have (and it's solid)
+
+| Feature | Your Implementation | D-Bus Source |
+|---|---|---|
+| Battery | `UPower` D-Bus | `org.freedesktop.UPower` (system bus) |
+| Wi-Fi toggle + SSID | `NetworkManager` D-Bus + `nmcli` async | `org.freedesktop.NetworkManager` (system bus) |
+| Bluetooth on/off | `BlueZ` D-Bus | `org.bluez` (system bus) |
+| Volume | `pactl` async | PulseAudio CLI |
+| Brightness | sysfs + `brightnessctl` | Kernel `/sys/class/backlight` |
+| DND | In-memory toggle | Local state |
+| Dark/Light theme | `ChiTheme.toggleDarkMode()` | Local state |
+
+Your `SystemStatus` has a **really nice** backoff system for failed async commands. That's production-quality thinking. 
+
+---
+
+## ❌ What You're Missing — Organized by D-Bus Specification
+
+### 1. 🎵 **MPRIS2 — Media Player Controls**
+This is the **#1 most-wanted** Quick Settings feature you're missing.
+
+MPRIS (Media Player Remote Interfacing Specification) is a standard D-Bus interface which aims to provide a common programmatic API for controlling media players. It provides a mechanism for discovery, querying and basic playback control of compliant media players, as well as a track list interface which is used to add context to the active media item.
+
+**How it works:**
+- The media player must expose the `/org/mpris/MediaPlayer2` object path, implementing `org.mpris.MediaPlayer2` and `org.mpris.MediaPlayer2.Player`.
+- Each media player must request a unique bus name which begins with `org.mpris.MediaPlayer2`.
+- You **discover** running players by enumerating bus names starting with `org.mpris.MediaPlayer2.*`
+- You get: Play/Pause/Next/Previous/Seek, track metadata (title, artist, album art URL), playback status, volume
+
+**What to build in chi-shell:**
+```
+src/MprisController.h / .cpp
+```
+- Watch the session bus for `org.mpris.MediaPlayer2.*` name appearances/disappearances
+- Read `Metadata`, `PlaybackStatus`, `CanGoNext`, `CanGoPrevious` properties
+- Expose to QML: `nowPlayingTitle`, `nowPlayingArtist`, `nowPlayingArt`, `isPlaying`, `playerName`
+- Call `Play()`, `Pause()`, `Next()`, `Previous()` methods
+- This is all **session bus, Qt6 D-Bus, no shelling out needed**
+
+---
+
+### 2. 🔋 **Power Profiles Daemon — Performance/Balanced/Power Saver**
+
+The Power Profile Daemon offers a standardized way to control system power profiles through a DBus interface. It provides three main profiles (power-saver, balanced, and performance) that are mapped to corresponding TuneD profiles.
+
+A lightweight, freedesktop.org-compliant service that centralizes power profile management across Linux distributions. By exposing its functionality over D-Bus, `power-profiles-daemon` allows users, scripts, and applications to interact with power profiles programmatically.
+
+**D-Bus interface:** `net.hadess.PowerProfiles` on the **system bus** at `/net/hadess/PowerProfiles`
+- Properties: `ActiveProfile` (string), `Profiles` (array)
+- The Profile Hold system allows applications to temporarily request a specific power profile for performance-critical tasks.
+
+**What to build:** A power profile tile (3-state: 🍃 Power Saver / ⚖️ Balanced / 🚀 Performance) — this is what GNOME shows in *their* Quick Settings.
+
+---
+
+### 3. 📡 **StatusNotifierItem (SNI) — System Tray / App Quick Actions**
+
+This is the **closest thing Linux has to "apps providing Quick Settings tiles."**
+
+This specification defines the management of visual items, usually icons used for reporting the status of an application to the user or provide quick access to common actions performed by that application.
+
+The Status Notifier Item system relies on inter-process communication via D-BUS and is composed by three parts: StatusNotifierItem, StatusNotifierWatcher, and StatusNotifierHost.
+
+**The 3-part architecture:**
+- **StatusNotifierItem**: Each application that wants to utilize status notifiers registers its own StatusNotifierItem to the session bus.
+- **StatusNotifierWatcher**: Service used to keep track of every active instance of StatusNotifierItem. It also notifies when items are added and removed.
+- **StatusNotifierHost**: An application that wants to provide a visualization of the existing StatusNotifierItem instances must register a StatusNotifierHost in the session bus.
+
+**Important:** The specification uses `org.freedesktop.StatusNotifier*` names but the D-Bus services use `org.kde.StatusNotifier*` names. The KDE variant is more widely implemented.
+
+Apps like Discord, Spotify, Slack, Steam, etc. all register as SNI items. **Chi-shell needs to be a StatusNotifierHost + StatusNotifierWatcher.**
+
+Each SNI item exposes:
+- Icon (by name or pixmap)
+- Tooltip
+- Menu (via `com.canonical.dbusmenu`)
+- Activate/SecondaryActivate actions
+
+**Where it goes in your QS panel:** A "System Tray" section showing active app indicators.
+
+---
+
+### 4. 🍔 **DBusMenu (`com.canonical.dbusmenu`) — App Menus Over D-Bus**
+
+The goal of DBusMenu is to make it possible for applications using the StatusNotifierItem spec to send their menus over DBus, so that the workspace can display them in a consistent way, regardless of whether the application is written using Qt, GTK or another toolkit.
+
+A DBus interface to expose menus on DBus. Menu items are represented with a unique numeric id and a dictionary of properties.
+
+This is how SNI items expose their right-click menus. You'll need to parse `com.canonical.dbusmenu` `GetLayout()` calls to render app context menus in your panel.
+
+---
+
+### 5. 🖥️ **XDG Desktop Portal — Your Shell as a Portal Backend**
+
+xdg-desktop-portal works by exposing a series of D-Bus interfaces known as portals under a well-known name (`org.freedesktop.portal.Desktop`). The portal interfaces include APIs for file access, opening URIs, printing and others.
+
+Portals originated from the Flatpak project, but are now a common Linux desktop standard. They are even used outside of sandboxes to provide a standardised API to common desktop features such as screenshots and screen casts on Wayland.
+
+For chi-shell running on Wayfire, you'll want `xdg-desktop-portal-wlr` or your own portal backend for:
+- Screenshot / screen recording
+- Color scheme preference (`org.freedesktop.impl.portal.Settings` — this is how GTK4/Flatpak apps read your dark mode preference!)
+- Screen sharing
+
+---
+
+## 🏗️ Recommended Architecture: What to Build
+
+Here's my recommended phased plan:
+
+### Phase 1 — High Impact (Build Now)
+
+```
+src/MprisController.h/.cpp        ← Media controls (session bus D-Bus)
+src/PowerProfileManager.h/.cpp    ← Power profiles (system bus D-Bus)  
+src/StatusNotifierHost.h/.cpp     ← System tray items (session bus D-Bus)
+src/DbusMenuParser.h/.cpp         ← Parse app menus from SNI items
+```
+
+**New QML tiles:**
+```qml
+// Media player widget (Now Playing card)
+// Power Profile tile (3-state cycle)  
+// System Tray items row
+// Screen brightness auto toggle
+```
+
+### Phase 2 — Parity Features
+
+| Feature | How |
+|---|---|
+| **Airplane Mode** | Kill Wi-Fi + BT + rfkill via D-Bus |
+| **Hotspot** | NetworkManager `AddAndActivateConnection` |
+| **Screen Rotation Lock** | Wayfire IPC or `xrandr` |
+| **Night Light / Blue Light** | `wlsunset` or `gammastep` integration |
+| **Keyboard Backlight** | UPower enumerates keyboard backlight LED objects on the system |
+| **Cast / Screen Mirror** | Portal ScreenCast |
+| **VPN toggle** | NetworkManager VPN connections |
+
+### Phase 3 — Innovation (Android + macOS Fusion)
+
+| Feature | Inspiration |
+|---|---|
+| **Editable tile grid** (pencil button) | Android |
+| **Resizable tiles** (S/M/L) | macOS 26 Tahoe |
+| **Multiple custom panels** | macOS 26 |
+| **Tile expansion** (tap vs long-press) | Android: tap toggles, long-press opens detail |
+| **Scrollable Flickable panel** | Your panel already clips, make it a Flickable |
+| **User-configurable tile JSON** | Persist with `~/.config/chi-shell/quicksettings.json` |
+
+---
+
+## 🧠 The Key Architectural Insight
+
+On Linux, the "third-party app Quick Settings tile" story is **SNI + DBusMenu**. There is no Android `TileService` equivalent. But you can innovate here:
+
+**Your innovation opportunity:** Define a simple D-Bus interface like:
+```
+org.chi.QuickSettings.Tile
+  Properties: Title, Icon, Description, Active (bool), Category
+  Methods: Activate(), LongPress()
+  Signals: Changed()
+```
+
+Apps could register tiles by placing a `.desktop`-like file in `~/.local/share/chi-shell/tiles/` or by registering on the session bus. This would make chi-shell the **first Linux shell with a proper Quick Settings tile API** — something nobody has done yet.
+
+---
+
+## 💡 Summary: What's Missing From Your Code Right Now
+
+| Priority | Missing Feature | Spec/Standard | Effort |
+|---|---|---|---|
+| 🔴 Critical | Media controls | MPRIS2 (D-Bus) | Medium |
+| 🔴 Critical | System tray | SNI + DBusMenu (D-Bus) | High |
+| 🟠 High | Power profiles | power-profiles-daemon (D-Bus) | Low |
+| 🟠 High | Editable/reorderable tiles | Local config | Medium |
+| 🟠 High | Portal Settings (dark mode broadcast) | XDG Portal | Medium |
+| 🟡 Medium | Night Light | wlsunset/gammastep | Low |
+| 🟡 Medium | VPN toggle | NetworkManager (D-Bus) | Low |
+| 🟡 Medium | Airplane mode | rfkill + NM + BlueZ | Low |
+| 🟢 Nice | Keyboard backlight | UPower (D-Bus) | Low |
+| 🟢 Nice | Tile resize (S/M/L) | QML layout logic | Medium |
+| 🟢 Nice | Custom tile API | New D-Bus interface | High |
+
+Want to start with MPRIS2 media controls? I can write you the `MprisController` C++ class that watches the session bus and exposes everything to QML. Or if you want to tackle SNI first, I can scaffold that. What's your priority?

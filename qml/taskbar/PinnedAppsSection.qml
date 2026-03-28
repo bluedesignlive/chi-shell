@@ -15,6 +15,8 @@ Row {
                            bool isPinned, int pinIdx, real gx)
     signal showPreview(string appId, real gx)
     signal hidePreview()
+    signal unpinDragStarted(string appId)
+    signal unpinDragEnded(string appId, bool doUnpin)
 
     Repeater {
         model: pinnedApps

@@ -1,0 +1,17 @@
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi_qmllint.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi_qmllint_json.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi_qmllint_module.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/all_qmllint.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/all_qmllint_json.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/all_qmllint_module.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi_copy_qml.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi_copy_res.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/generate_qmlls_build_ini_file.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/module_shinobi_aotstats_target.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/all_aotstats.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi_qmlimportscan.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/edit_cache.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/rebuild_cache.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi_autogen_timestamp_deps.dir
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/CMakeFiles/shinobi_autogen.dir

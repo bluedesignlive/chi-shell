@@ -25,12 +25,15 @@ Item {
                            bool isRunning, int idx, real gx)
     signal showPreview(string appId, real gx)
     signal hidePreview()
+    signal unpinDragStarted(string appId)
+    signal unpinDragEnded(string appId, bool doUnpin)
 
     // Drag state
     property bool held: false
+    property bool draggedOut: false
 
     z: held ? 10 : 1
-    opacity: held ? 0.7 : 1.0
+    opacity: draggedOut ? 0.3 : held ? 0.7 : 1.0
     Behavior on opacity { NumberAnimation { duration: 120 } }
 
     // ── Visual content ────────────────────────────────────────────
@@ -110,6 +113,14 @@ Item {
          : 1.0
     Behavior on scale { SpringAnimation { spring: 16; damping: 0.65 } }
 
+    // ── Scroll wheel to cycle windows ─────────────────────
+    WheelHandler {
+        enabled: delegate.isRunning && delegate.windowCount > 1
+        onWheel: function(event) {
+            windowTracker.activateNextForApp(delegate.appId, event.angleDelta.y > 0)
+        }
+    }
+
     // ── Mouse handling ────────────────────────────────────────────
 
     MouseArea {
@@ -120,6 +131,7 @@ Item {
         cursorShape: Qt.PointingHandCursor
 
         property real dragStartX: 0
+        property real dragStartY: 0
         property bool dragActive: false
 
         onContainsMouseChanged: {
@@ -143,31 +155,59 @@ Item {
         onPressed: function(mouse) {
             if (mouse.button === Qt.LeftButton) {
                 dragStartX = mouse.x
+                dragStartY = mouse.y
             }
         }
 
         onPressAndHold: {
             if (delegate.isPinned) {
                 delegate.held = true
+                delegate.unpinDragStarted(delegate.appId)
             }
         }
 
         onReleased: function(mouse) {
             if (delegate.held) {
+                if (delegate.draggedOut && delegate.isPinned) {
+                    delegate.unpinDragEnded(delegate.appId, true)
+                    pinnedApps.unpin(delegate.appId)
+                } else {
+                    delegate.unpinDragEnded(delegate.appId, false)
+                }
                 delegate.held = false
+                delegate.draggedOut = false
             }
         }
 
         onPositionChanged: function(mouse) {
+            // Start drag if moved enough while pressed
+            if (pressed && !delegate.held && delegate.isPinned) {
+                var dx = mouse.x - dragStartX
+                var dy = mouse.y - dragStartY
+                if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+                    delegate.held = true
+                    delegate.unpinDragStarted(delegate.appId)
+                }
+            }
+
             if (!delegate.held || !delegate.isPinned) return
-            // Calculate target index from global position
-            var lv = delegate.ListView.view
-            if (!lv) return
-            var globalPos = delegate.mapToItem(lv.contentItem, delegate.width / 2, 0)
-            var targetIdx = Math.floor((globalPos.x + lv.contentX) / 48)
-            targetIdx = Math.max(0, Math.min(targetIdx, taskbarModel.count - 1))
-            if (targetIdx !== delegate.index && taskbarModel.isPinnedAt(targetIdx)) {
-                taskbarModel.move(delegate.index, targetIdx)
+
+            // Check for drag-out-to-unpin (dragged above bar)
+            var dy = mouse.y - dragStartY
+            if (dy < -50) {
+                delegate.draggedOut = true
+            } else {
+                delegate.draggedOut = false
+
+                // Reorder among pinned apps
+                var lv = delegate.ListView.view
+                if (!lv) return
+                var globalPos = delegate.mapToItem(lv.contentItem, delegate.width / 2, 0)
+                var targetIdx = Math.floor((globalPos.x + lv.contentX) / 48)
+                targetIdx = Math.max(0, Math.min(targetIdx, pinnedApps.count - 1))
+                if (targetIdx !== delegate.index) {
+                    pinnedApps.reorder(delegate.index, targetIdx)
+                }
             }
         }
 

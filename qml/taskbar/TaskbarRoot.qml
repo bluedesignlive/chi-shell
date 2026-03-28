@@ -12,9 +12,18 @@ Item {
     property bool autoHideEnabled: false
     property bool popupsOpen: appCtx.visible || taskbarCtx.visible
                               || windowPreview.visible || shell.appLauncherOpen
+                              || trashItem._menuOpen
     property bool barRevealed: !autoHideEnabled || _hoverSensor.containsMouse
                                || popupsOpen || revealLock
     property bool revealLock: false
+    property string _unpinAppId: ""
+    property bool _unpinActive: false
+
+    onAutoHideEnabledChanged: {
+        if (typeof taskbarSurface !== "undefined") {
+            taskbarSurface.setExclusiveZone(autoHideEnabled ? 0 : barH)
+        }
+    }
 
     onPopupsOpenChanged: {
         shell.taskbarPopupActive = popupsOpen
@@ -88,7 +97,7 @@ Item {
         Flickable {
             id: appFlickable
             anchors.left: leftButtons.right; anchors.leftMargin: 8
-            anchors.right: rightButtons.left; anchors.rightMargin: 8
+            anchors.right: trashDivider.left; anchors.rightMargin: 4
             anchors.verticalCenter: parent.verticalCenter
             height: 48
             contentWidth: appContentRow.width
@@ -111,6 +120,8 @@ Item {
                     }
                     onShowPreview: function(appId, gx) { windowPreview.scheduleShow(appId, gx) }
                     onHidePreview: windowPreview.scheduleHide()
+                    onUnpinDragStarted: function(appId) { root._unpinAppId = appId; root._unpinActive = true }
+                    onUnpinDragEnded: function(appId, doUnpin) { root._unpinActive = false; root._unpinAppId = "" }
                 }
 
                 // ── Divider ──────────────────────────────────────
@@ -141,6 +152,26 @@ Item {
             }
         }
 
+        // Trash divider + item
+        Item {
+            id: trashDivider
+            anchors.right: trashItem.left; anchors.rightMargin: 2
+            anchors.verticalCenter: parent.verticalCenter
+            width: divLine.visible ? 13 : 0; height: 48
+            Rectangle {
+                id: divLine; anchors.centerIn: parent
+                width: 1; height: 32
+                color: ChiTheme.colors.outlineVariant
+                visible: appContentRow.width > 0
+            }
+        }
+
+        TrashItem {
+            id: trashItem
+            anchors.right: rightButtons.left; anchors.rightMargin: 4
+            anchors.verticalCenter: parent.verticalCenter
+        }
+
         RightButtons {
             id: rightButtons
             anchors.right: parent.right; anchors.rightMargin: 8
@@ -151,6 +182,34 @@ Item {
     // ═══════════════════════════════════════════════════
     // OVERLAYS
     // ═══════════════════════════════════════════════════
+
+    // Unpin drag indicator
+    Rectangle {
+        visible: root._unpinActive
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: root.popupH - 60
+        width: unpinRow.width + 24; height: 36; radius: 18
+        color: ChiTheme.colors.errorContainer
+
+        Row {
+            id: unpinRow
+            anchors.centerIn: parent; spacing: 6
+            Icon { source: "push_pin"; size: 16; color: ChiTheme.colors.error
+                   anchors.verticalCenter: parent.verticalCenter }
+            Text {
+                text: "Release to unpin"
+                color: ChiTheme.colors.error
+                font.pixelSize: 12; font.weight: 500
+                font.family: ChiTheme.fontFamily
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+
+        scale: root._unpinActive ? 1.0 : 0.8
+        opacity: root._unpinActive ? 1.0 : 0.0
+        Behavior on scale   { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+    }
 
     TaskbarTooltip {
         id: tooltip

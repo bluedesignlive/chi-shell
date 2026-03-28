@@ -1,0 +1,160 @@
+# Shinobi Terminal — Progress Tracker
+# ═══════════════════════════════════════════════════════════════
+
+## Tier 1 — Core Terminal (MVP)
+
+### Terminal Emulation
+[x] PTY management (forkpty, read/write, resize, SIGCHLD)
+[x] libvterm integration (VT220/xterm-256color parsing)
+[x] True color (24-bit) via libvterm
+[x] Unicode support via libvterm UTF-8 mode
+[x] Alternate screen buffer support
+[x] Scrollback buffer (10,000 lines, ring buffer via libvterm callbacks)
+[x] Keyboard input encoding (special keys, modifiers via libvterm)
+[x] Cell attributes (bold, italic, underline, strikethrough, blink, reverse, faint)
+[ ] Bracketed paste (mode 2004)
+[ ] OSC 8 hyperlinks (clickable links)
+[ ] Synchronized rendering (DEC mode 2026)
+[ ] Kitty Keyboard Protocol
+[ ] Mouse reporting (modes 1000, 1002, 1003, 1006)
+[ ] Text reflow on resize
+[ ] Emoji rendering (color emoji via system fonts)
+
+### Rendering
+[x] QQuickPaintedItem terminal renderer
+[x] Cell-by-cell painting with font metrics
+[x] Cursor rendering (block shape, blink animation)
+[x] Background/foreground per-cell coloring
+[x] Bold/italic/faint/reverse attribute rendering
+[x] Underline and strikethrough rendering
+[x] ChiTheme-driven terminal colors
+[ ] GPU-accelerated Scene Graph renderer (optimization pass)
+[ ] Glyph atlas texture caching
+[ ] Dirty-region-only repainting
+[ ] Font ligature support
+[ ] Selection highlight rendering
+
+### Tabs
+[x] Create tab (Ctrl+Shift+T, button)
+[x] Close tab (Ctrl+Shift+W, middle-click, close button)
+[x] Switch tabs (Ctrl+Tab, Ctrl+Shift+Tab)
+[x] Direct tab switch (Alt+1 through Alt+9)
+[x] Tab titles from shell/process
+[x] Tab bar with Chi Material 3 theming
+[x] New tab inherits default CWD
+[ ] Drag to reorder tabs
+[ ] Tab close confirmation when process is running
+[ ] Tab bar visibility config (always, multiple, never)
+
+### Split Panes
+[ ] Vertical split (Ctrl+Shift+D)
+[ ] Horizontal split (Ctrl+Shift+E)
+[ ] Navigate panes (Ctrl+Shift+H/J/K/L)
+[ ] Close pane
+[ ] Zen mode (maximize/restore pane)
+[ ] Auto-layout (choose H/V by aspect ratio)
+[ ] Resize panes (keyboard-driven increments)
+[ ] Mouse resize with snap points
+[ ] Predefined layouts (1-up, 2-col, 2-row, grid)
+
+### Search
+[ ] In-tab search (Ctrl+Shift+F)
+[ ] Highlight all matches
+[ ] Navigate matches (Enter/Shift+Enter)
+[ ] Regex support toggle
+[ ] Case sensitivity toggle
+[ ] Match count display
+
+### Copy, Paste & Selection
+[ ] Click-drag selection
+[ ] Word selection (double-click)
+[ ] Line selection (triple-click)
+[ ] Rectangular selection (Alt+drag)
+[ ] Smart Ctrl+C (copy if selected, SIGINT if not)
+[ ] Ctrl+Shift+C / Ctrl+Shift+V
+[ ] Bracketed paste
+[ ] Auto-copy on select (optional)
+[ ] Smart selection (quad-click: URL, path, quoted string)
+
+### Context Menu
+[ ] Right-click context menu
+[ ] Context-aware items (empty, selected text, URL, file path)
+[ ] Ctrl+Click on URL → open browser
+[ ] Ctrl+Click on path → open editor/file manager
+
+### Font System
+[x] Configurable font family (compile-time default: Monospace)
+[x] Configurable font size (13px default)
+[ ] Font ligature support
+[ ] Bold/italic font variant selection
+[ ] Ctrl+= / Ctrl+- zoom per tab
+[ ] Ctrl+0 zoom reset
+[ ] HiDPI display support
+
+### Theming & Colors
+[x] ChiTheme integration (surface, onSurface, primary tokens)
+[x] ANSI 16-color palette (Material 3 inspired defaults)
+[x] 256-color palette (6x6x6 cube + grayscale ramp)
+[x] Dark/light mode toggle via Chi
+[ ] Built-in color schemes (Catppuccin, Tokyo Night, Dracula, Nord, Gruvbox)
+[ ] Import color schemes (iTerm2, Xresources, TOML)
+[ ] Background opacity
+
+### Keyboard Shortcuts
+[x] Ctrl+Shift+T — new tab
+[x] Ctrl+Shift+W — close tab
+[x] Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs
+[x] Alt+1-9 — direct tab switch
+[ ] All keybindings user-rebindable via config
+[ ] Conflict detection
+
+### Configuration
+[ ] TOML config file ($XDG_CONFIG_HOME/chiterm/chiterm.toml)
+[ ] XDG Base Directory compliance
+[ ] Sensible defaults with no config file
+[ ] Live reload on file change
+[ ] Validation with fallback to defaults
+
+### Shell Integration
+[ ] CWD tracking (OSC 7)
+[ ] Command timing (OSC 133)
+[ ] Exit code detection (OSC 133)
+[ ] Process name detection for tab title
+[ ] Shell integration scripts (bash, zsh, fish)
+
+### Status Bar
+[x] Session title display
+[x] Running/exited indicator
+[x] Chi-themed styling
+[ ] CWD display with icon
+[ ] Git branch display
+[ ] Command duration display
+[ ] Last exit code indicator (✓/✗)
+
+### Application
+[x] ChiApplicationWindow integration
+[x] Frameless window with Material 3 chrome
+[x] Window controls (close, minimize, maximize)
+[x] Dark/light mode toggle button
+[x] Empty state screen (no tabs)
+[ ] Fullscreen toggle (F11)
+[ ] Single instance guard
+
+## Tier 2 — Power Features
+[ ] Block-based output
+[ ] Command palette (Ctrl+Shift+P)
+[ ] Session persistence & workspaces
+[ ] Quake-mode dropdown terminal
+[ ] Desktop notifications (long-running commands)
+[ ] Image protocol (Kitty, Sixel)
+[ ] Color-coded tabs (SSH, root, local)
+[ ] Cross-tab search
+[ ] Smart selection
+[ ] Settings GUI
+
+## Tier 3 — Advanced & AI
+[ ] AI assistant panel
+[ ] SSH bookmark manager
+[ ] Inline widgets (markdown, sysinfo, git)
+[ ] Triggers & automation
+[ ] Extension/plugin API

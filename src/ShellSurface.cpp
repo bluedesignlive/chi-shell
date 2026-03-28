@@ -22,7 +22,16 @@ ShellSurface::~ShellSurface()
 
 void ShellSurface::setLayer(Layer layer)         { m_layer = layer; }
 void ShellSurface::setAnchors(LayerShellQt::Window::Anchors a) { m_anchors = a; }
-void ShellSurface::setExclusiveZone(int zone)    { m_exclusiveZone = zone; }
+void ShellSurface::setExclusiveZone(int zone)
+{
+    m_exclusiveZone = zone;
+    // Update live surface if already configured
+    if (m_layerConfigured && m_view) {
+        auto *lsw = LayerShellQt::Window::get(m_view);
+        if (lsw)
+            lsw->setExclusiveZone(zone);
+    }
+}
 void ShellSurface::setKeyboardMode(KeyboardMode m) { m_keyboardMode = m; }
 void ShellSurface::setScope(const QString &scope) { m_scope = scope; }
 

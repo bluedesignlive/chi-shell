@@ -1,0 +1,519 @@
+Here's your spec file:
+
+```markdown
+# Chi Shell — Quick Settings Panel Specification
+
+**Version:** 0.3.0-draft
+**Target:** Wayland (Wayfire) · Qt6/QML · LayerShellQt
+**Design language:** Material You (M3) with Android/macOS fusion
+
+---
+
+## 1. Overview
+
+The Quick Settings panel is a full-screen overlay surface on the `Overlay` layer.
+It provides instant access to system controls, media playback, connectivity,
+and third-party app actions — without ever opening a full Settings application.
+
+**Design principles:**
+
+- One-tap for toggles, expand-tap for details
+- Every control must respond in under 100ms (optimistic UI)
+- No synchronous process calls on the main thread — ever
+- D-Bus first, CLI fallback, sysfs for hardware reads
+- Panel must work with mouse, touch, keyboard, and pen
+
+---
+
+## 2. Panel Structure (Top to Bottom)
+
+```
+┌──────────────────────────────────┐
+│  A) Status Header                │
+│  B) Media Player (Now Playing)   │
+│  C) Brightness Slider            │
+│  D) Volume Slider                │
+│  E) Tile Grid (2-column)         │
+│  F) Extra Tiles / Overflow       │
+│  G) Footer (Settings + Power)    │
+└──────────────────────────────────┘
+```
+
+The entire content area is a `Flickable`. If content exceeds available
+height, the user can scroll vertically. The panel itself does not resize
+dynamically beyond `Math.min(content, screen - 104px)`.
+
+---
+
+## 3. Panel Chrome
+
+| Property        | Value                                    |
+|-----------------|------------------------------------------|
+| Width           | 412px (fixed)                            |
+| Anchor          | Top-right, 8px from right edge           |
+| Top margin      | StatusBar height (36px) + 4px gap        |
+| Corner radius   | 28px                                     |
+| Background      | `ChiTheme.colors.surface`                |
+| Scrim           | Full-screen transparent `MouseArea`      |
+| Dismiss         | Tap scrim, press Escape, or swipe down   |
+| Layer           | `Overlay` (above all windows)            |
+| Keyboard        | `KeyboardExclusive` while open           |
+| Mutual exclusion| Closes Notification Center & App Launcher|
+
+### 3.1 Open / Close Animation
+
+- **Open:** Panel translates from `y: -20` to `y: 0` with `opacity: 0 → 1`
+  over 200ms, easing `Easing.OutCubic`.
+- **Close:** Reverse, 150ms, `Easing.InCubic`.
+- Scrim fades `opacity: 0 → 0.3` (dark) in sync.
+
+---
+
+## 4. Sections
+
+### A) Status Header
+
+Displays at-a-glance system information.
+
+| Element         | Details                                          |
+|-----------------|--------------------------------------------------|
+| Time            | Large format `h:mm`, updates every 1s via Timer  |
+| Date            | `ddd, MMM d` format, left-aligned                |
+| Status icons    | Wi-Fi signal, Bluetooth, Battery — right-aligned  |
+| Battery text    | `XX%` next to battery icon                       |
+| User avatar     | Optional — small circle, far right (future)      |
+
+**Behavior:**
+- Tapping the time/date area opens nothing (passive display).
+- Status icons reflect live state from `SystemStatus`.
+
+---
+
+### B) Media Player (Now Playing)
+
+A card that appears **only when a media player is active** via MPRIS2.
+
+| Element          | Details                                         |
+|------------------|-------------------------------------------------|
+| Album art        | 48×48 rounded square, left side                 |
+| Track title      | Single line, ellipsis overflow                   |
+| Artist name      | Single line, secondary color                     |
+| Player name      | Subtle label (e.g. "Spotify", "Firefox")         |
+| Controls         | ◀◀  ▶/⏸  ▶▶ — centered row                     |
+| Progress         | Thin progress bar beneath the card (optional)    |
+
+**D-Bus source:** `org.mpris.MediaPlayer2.*` on session bus.
+
+| Interface                          | Usage                              |
+|------------------------------------|------------------------------------|
+| `org.mpris.MediaPlayer2.Player`    | Metadata, PlaybackStatus, controls |
+| `Properties.PropertiesChanged`     | Live updates without polling       |
+
+**Behavior:**
+- Discover players by watching bus names matching `org.mpris.MediaPlayer2.*`.
+- When multiple players exist, show the one currently playing. If none are
+  playing, show the most recently active.
+- Tap ▶/⏸ calls `PlayPause()`. Tap ◀◀/▶▶ calls `Previous()`/`Next()`.
+- Tap the card body opens nothing (future: expand to show seek bar).
+- Card hides with a 5-second delay after the player disappears from the bus.
+
+**Performance:**
+- No polling. Use `PropertiesChanged` signal for live metadata updates.
+- Cache album art URL. Only reload image when `mpris:artUrl` changes.
+
+---
+
+### C) Brightness Slider
+
+A horizontal pill-shaped slider for display brightness.
+
+| Element         | Details                                         |
+|-----------------|-------------------------------------------------|
+| Track           | Full-width rounded rectangle, `surfaceContainerHigh` |
+| Fill            | Left-to-right, `primaryContainer` color          |
+| Icon            | `brightness_medium` pinned to right side         |
+| Height          | 40px (44px hit target)                           |
+| Animation       | `SpringAnimation { spring: 14.0; damping: 1.0 }`|
+
+**Backend:** Read from `/sys/class/backlight/*/brightness` (sysfs).
+Write via `brightnessctl set <value>`.
+
+**Behavior:**
+- Drag or tap anywhere on the track to set brightness.
+- Value is `0.0` to `1.0`, mapped to hardware range.
+- On desktops without a backlight device, hide this slider entirely.
+- Optimistic UI: update fill immediately, write to hardware async.
+
+**Performance:**
+- sysfs reads are fast (file I/O). No D-Bus or process spawn needed for reads.
+- Writes use `QProcess::startDetached` — fire and forget.
+- Throttle writes during drag: apply at most every 50ms (accumulate last value).
+
+---
+
+### D) Volume Slider
+
+Identical visual style to Brightness slider.
+
+| Element         | Details                                         |
+|-----------------|-------------------------------------------------|
+| Fill            | `primaryContainer` color, width = `volume / 100`|
+| Icon            | Dynamic: `volume_up`, `volume_down`, `volume_mute`, `volume_off` |
+| Range           | 0–100 (integer percent)                         |
+
+**Backend:** PipeWire/PulseAudio via `pactl`.
+
+| Action           | Command                                        |
+|------------------|------------------------------------------------|
+| Read volume      | `pactl get-sink-volume @DEFAULT_SINK@`         |
+| Read mute        | `pactl get-sink-mute @DEFAULT_SINK@`           |
+| Set volume       | `pactl set-sink-volume @DEFAULT_SINK@ XX%`     |
+| Set mute         | `pactl set-sink-mute @DEFAULT_SINK@ 1/0`       |
+
+**Behavior:**
+- Drag or tap to set volume.
+- Optimistic UI: update fill immediately.
+- If muted, show fill at 0% but remember actual volume for unmute.
+
+**Performance:**
+- Read commands are async with 2s timeout and backoff on failure.
+- Writes are `startDetached` — fire and forget.
+- Throttle drag writes to every 50ms.
+
+**Future:** Replace `pactl` with native PipeWire D-Bus or `libpipewire`
+for zero-process-spawn volume control.
+
+---
+
+### E) Tile Grid
+
+A 2-column grid of toggleable tiles. Each tile has two interaction modes:
+- **Tap body** → toggle on/off
+- **Tap expand arrow** → open sub-panel with details (where applicable)
+
+#### Standard Tile Types
+
+##### Wide Tile (half-width, shows icon + title + description)
+
+```
+┌─────────────────────┐
+│ (•) WiFi            │
+│     Connected       │
+│              [arrow]│
+└─────────────────────┘
+```
+
+- Width: `(parent.width - spacing) / 2`
+- Height: 72px
+- Active state: `primaryContainer` background
+- Inactive state: `surfaceContainerHigh` background
+
+##### Small Tile (quarter-width, icon only)
+
+```
+┌────────┐
+│  (•)   │
+└────────┘
+```
+
+- Width: `(parent.width - spacing) / 4 - padding`
+- Height: 72px
+- Used for simple toggles: DND, Mute, Rotation Lock
+
+#### Default Tile Layout
+
+```
+Row 1: [ WiFi (wide)          ] [ Bluetooth (wide)      ]
+Row 2: [ Dark Mode (wide)     ] [ DND (small) ] [ Mute (small) ]
+Row 3: [ Power Profile (wide) ] [ Night Light (wide)    ]
+Row 4: [ Airplane Mode (wide) ] [ VPN (wide)            ]
+```
+
+#### Tile Definitions
+
+| Tile            | Icon (on/off)                      | Toggle Action                    | Expand Action          |
+|-----------------|------------------------------------|----------------------------------|------------------------|
+| Wi-Fi           | `wifi` / `wifi_off`                | Enable/disable wireless          | Show network list      |
+| Bluetooth       | `bluetooth` / `bluetooth_disabled` | Power adapter on/off             | Show paired devices    |
+| Dark Mode       | `dark_mode` / `light_mode`         | Toggle `ChiTheme.isDarkMode`     | —                      |
+| DND             | `do_not_disturb_on/off`            | Toggle notification suppression  | —                      |
+| Mute            | `volume_off` / `volume_up`         | Toggle PulseAudio mute           | —                      |
+| Power Profile   | `bolt` / `eco_leaf` / `balance`    | Cycle: balanced→performance→saver| —                      |
+| Night Light     | `nightlight` / `nightlight_off`    | Toggle color temperature shift   | —                      |
+| Airplane Mode   | `flight` / `flight_off`            | Disable Wi-Fi + BT + rfkill      | —                      |
+| VPN             | `vpn_lock` / `vpn_lock_off`        | Toggle active VPN connection     | Show VPN list          |
+
+---
+
+### E.1) Wi-Fi Sub-Panel
+
+Opens when the user taps the expand arrow on the Wi-Fi tile.
+
+```
+┌──────────────────────────────────┐
+│  ← Wi-Fi                        │
+│                                  │
+│  [====== signal ] HomeNetwork  ✓ │
+│  [====   signal ] CoffeeShop    │
+│  [==     signal ] Neighbor5G    │
+│  ...                             │
+│                                  │
+│  [ Wi-Fi Settings ]             │
+└──────────────────────────────────┘
+```
+
+**Data source:** `nmcli -t -f SSID,SIGNAL,SECURITY,ACTIVE dev wifi list --wait 0`
+
+**Behavior:**
+- List is fetched async on open. Show a loading spinner if > 300ms.
+- Currently connected network shows a checkmark.
+- Tap a network: if open, connect directly. If secured, show password
+  dialog (future — for now, open `nm-connection-editor` or GNOME Settings).
+- Back button returns to main tile grid with a slide transition.
+
+---
+
+### E.2) Bluetooth Sub-Panel
+
+Opens when the user taps the expand arrow on the Bluetooth tile.
+
+**Data source:** BlueZ D-Bus `org.bluez` — enumerate objects under
+`/org/bluez/hci0/dev_*` for paired devices.
+
+**Behavior:**
+- Show paired devices with name, icon, and connection status.
+- Tap a device to connect/disconnect.
+- Bottom link: "Bluetooth Settings" opens system Bluetooth settings.
+
+---
+
+### F) Extra Tiles / Overflow
+
+Tiles beyond the default set appear below the main grid. These include:
+
+- **Hotspot** — NetworkManager `AddAndActivateConnection` for AP mode
+- **Screen Rotation Lock** — toggle auto-rotate (tablet/2-in-1 only, hide on desktop)
+- **Keyboard Backlight** — UPower LED control (show only if hardware exists)
+- **Cast / Screen Mirror** — XDG Portal ScreenCast (future)
+
+If more than ~6 rows of tiles exist, the `Flickable` handles scrolling.
+
+---
+
+### G) Footer
+
+A centered row of circular icon buttons.
+
+| Button   | Icon                  | Action                              |
+|----------|-----------------------|-------------------------------------|
+| Settings | `settings`            | Launch system settings app          |
+| Power    | `power_settings_new`  | Open power menu (shutdown/restart/logout) |
+
+- Settings button: `surfaceContainerHigh` background.
+- Power button: `primaryContainer` background (accent).
+- Both are 40×40 circles with 24px icons.
+- `cursorShape: Qt.PointingHandCursor` on hover.
+
+**Power Menu (future):** Tap power button opens a small popup with:
+Shutdown, Restart, Suspend, Log Out.
+
+---
+
+## 5. D-Bus Interfaces Used
+
+### System Bus
+
+| Service                          | Interface / Path                                     | Usage               |
+|----------------------------------|------------------------------------------------------|---------------------|
+| `org.freedesktop.UPower`         | `/org/freedesktop/UPower/devices/DisplayDevice`      | Battery state       |
+| `org.freedesktop.NetworkManager` | `/org/freedesktop/NetworkManager`                    | Wi-Fi state/toggle  |
+| `org.bluez`                      | `/org/bluez/hci0` · `org.bluez.Adapter1`             | Bluetooth toggle    |
+| `org.bluez`                      | `/org/bluez/hci0/dev_*` · `org.bluez.Device1`        | Paired BT devices   |
+| `net.hadess.PowerProfiles`       | `/net/hadess/PowerProfiles`                          | Power profile cycle |
+
+### Session Bus
+
+| Service                          | Interface / Path                                     | Usage               |
+|----------------------------------|------------------------------------------------------|---------------------|
+| `org.mpris.MediaPlayer2.*`       | `/org/mpris/MediaPlayer2` · `.Player`                | Media controls      |
+| `org.kde.StatusNotifierWatcher`  | `/StatusNotifierWatcher`                             | App tray items      |
+| `com.canonical.dbusmenu`         | Per-item path                                        | App tray menus      |
+
+### CLI Fallbacks
+
+| Tool            | Usage                        | Notes                          |
+|-----------------|------------------------------|--------------------------------|
+| `pactl`         | Volume get/set, mute get/set | Async with backoff             |
+| `brightnessctl` | Brightness set               | Fire-and-forget                |
+| `nmcli`         | Wi-Fi scan list, SSID        | Async with `--wait 0`         |
+| `rfkill`        | Airplane mode                | `rfkill block all/unblock all` |
+
+---
+
+## 6. System Tray Integration (StatusNotifierItem)
+
+Chi-shell acts as both `StatusNotifierWatcher` and `StatusNotifierHost`.
+
+**Discovery:**
+- Register `org.kde.StatusNotifierWatcher` on the session bus.
+- Apps register themselves via `RegisterStatusNotifierItem(service)`.
+- Chi-shell tracks active items and emits `StatusNotifierItemRegistered` /
+  `StatusNotifierItemUnregistered`.
+
+**Display:**
+- Tray icons appear in the **StatusBar** (top bar), not in Quick Settings.
+- If an SNI item's menu is accessed from the StatusBar, it uses `com.canonical.dbusmenu`
+  to render a popup menu.
+
+**Future:** Allow users to promote an SNI item into a Quick Settings tile.
+
+---
+
+## 7. Performance Model
+
+### Polling Strategy
+
+| Data Source      | Method         | Interval | Notes                            |
+|------------------|----------------|----------|----------------------------------|
+| Battery          | D-Bus property | 15s      | UPower — always fast             |
+| Wi-Fi state      | D-Bus property | 15s      | NM state enum                    |
+| Wi-Fi SSID       | `nmcli` async  | 15s      | With `--wait 0`, 2s timeout     |
+| Bluetooth        | D-Bus property | 15s      | BlueZ — always fast              |
+| Volume           | `pactl` async  | 15s      | 2s timeout, backoff on failure   |
+| Mute             | `pactl` async  | 15s      | 2s timeout, backoff on failure   |
+| Brightness       | sysfs read     | 15s      | File I/O — always fast           |
+| Media            | D-Bus signal   | —        | No polling. Signal-driven.       |
+| Power profile    | D-Bus property | 15s      | Single property read             |
+
+### Async Command Rules
+
+1. All `QProcess` calls are **async** (`QProcess::finished` signal).
+2. Each command ID tracks consecutive failures.
+3. After 3 failures → back off to once per minute.
+4. After 10 failures → disable until next shell restart.
+5. Never run two instances of the same command concurrently.
+6. Every async command has a 2-second kill timer.
+
+### Optimistic UI
+
+All user-initiated changes (toggle, slider drag) update the QML-bound
+property **immediately** before the system command executes. If the command
+fails, the next poll cycle corrects the state.
+
+### Slider Throttling
+
+During active drag on brightness/volume sliders, writes are throttled
+to one `startDetached` call per 50ms. The last value always gets applied
+on release.
+
+---
+
+## 8. Keyboard & Accessibility
+
+| Key / Gesture         | Action                                  |
+|-----------------------|-----------------------------------------|
+| `Escape`              | Close panel                             |
+| `Tab` / `Shift+Tab`   | Navigate between tiles and sliders      |
+| `Space` / `Enter`     | Activate focused tile                   |
+| `Arrow Left/Right`    | Adjust focused slider                   |
+| Click scrim           | Close panel                             |
+| Swipe down on panel   | Close panel (touch)                     |
+
+All interactive elements must have `Accessible.role` and `Accessible.name`
+properties set for screen reader compatibility.
+
+---
+
+## 9. Theming
+
+All colors come from `ChiTheme` (Material You dynamic color).
+
+| Element                | Token                              |
+|------------------------|------------------------------------|
+| Panel background       | `surface`                          |
+| Tile active background | `primaryContainer`                 |
+| Tile active foreground | `onPrimaryContainer`               |
+| Tile inactive bg       | `surfaceContainerHigh`             |
+| Tile inactive fg       | `onSurfaceVariant`                 |
+| Slider track           | `surfaceContainerHigh`             |
+| Slider fill            | `primaryContainer`                 |
+| Primary text           | `onSurface`                        |
+| Secondary text         | `onSurfaceVariant`                 |
+| Scrim                  | `#000000` at 30% opacity           |
+
+Dark mode and light mode switch instantly via `ChiTheme.toggleDarkMode()`.
+
+---
+
+## 10. Configuration
+
+User preferences are stored in `~/.config/chi-shell/quicksettings.json`.
+
+```json
+{
+  "version": 1,
+  "tiles": [
+    { "id": "wifi",          "size": "wide",  "row": 0, "col": 0 },
+    { "id": "bluetooth",     "size": "wide",  "row": 0, "col": 1 },
+    { "id": "dark_mode",     "size": "wide",  "row": 1, "col": 0 },
+    { "id": "dnd",           "size": "small", "row": 1, "col": 1 },
+    { "id": "mute",          "size": "small", "row": 1, "col": 2 },
+    { "id": "power_profile", "size": "wide",  "row": 2, "col": 0 },
+    { "id": "night_light",   "size": "wide",  "row": 2, "col": 1 }
+  ],
+  "showMediaPlayer": true,
+  "sliderOrder": ["brightness", "volume"]
+}
+```
+
+**Edit mode:** Tap a pencil/edit icon in the footer to enter edit mode.
+Tiles become draggable. A tray of available (hidden) tiles appears at the
+bottom. Drag tiles in/out to add/remove. Drag to reorder. Tap "Done" to
+save and exit edit mode.
+
+---
+
+## 11. Future Considerations
+
+- **Third-party tile API** (`org.chi.QuickSettings.Tile` D-Bus interface)
+  allowing any app to register a toggle tile with icon, label, state, and
+  activate callback.
+- **Resizable tiles** — hold a tile in edit mode and resize between
+  small / wide / large (full-width card with extra info).
+- **Multiple panels** — swipe left/right between custom tile groups
+  (e.g. "Home", "Media", "Dev Tools").
+- **XDG Desktop Portal backend** (`xdg-desktop-portal-chi`) so Flatpak
+  and sandboxed apps can read color-scheme, request screenshots, and
+  interact with the shell natively.
+- **Native PipeWire integration** — replace `pactl` with direct PipeWire
+  D-Bus or `libpipewire` for zero-latency, zero-process-spawn audio control.
+- **Power menu expansion** — shutdown, restart, suspend, log out, lock
+  screen — triggered from the footer power button.
+- **Per-app audio** — volume sliders for individual apps
+  (PipeWire stream enumeration).
+
+---
+
+## 12. File Map
+
+```
+src/
+  SystemStatus.h / .cpp          — Battery, Wi-Fi, BT, audio, brightness
+  MprisController.h / .cpp       — MPRIS2 media player discovery + control
+  PowerProfileManager.h / .cpp   — power-profiles-daemon integration
+  StatusNotifierHost.h / .cpp    — SNI watcher + host
+  DbusMenuParser.h / .cpp        — com.canonical.dbusmenu for SNI menus
+
+qml/
+  QuickSettings.qml              — Panel root, scrim, Flickable layout
+  SettingsTile.qml               — Reusable tile component (wide + small)
+  MediaPlayerCard.qml            — MPRIS now-playing widget
+  WifiSubPanel.qml               — Expandable Wi-Fi network list
+  BluetoothSubPanel.qml          — Expandable paired device list
+  SliderControl.qml              — Reusable brightness/volume slider
+  TileGrid.qml                   — Grid layout with edit mode support
+  PowerMenu.qml                  — Shutdown/restart/suspend popup
+```
+```
+
+This covers every feature, every behavior, every D-Bus source, and the performance rules — all in one document you can hand to any contributor and they'll know exactly what to build. Want to start implementing any specific section?

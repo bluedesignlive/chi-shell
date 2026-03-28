@@ -1,0 +1,103 @@
+{
+    "formatRevision": 1,
+    "modules": [
+        {
+            "moduleFiles": [
+                {
+                    "entries": [
+                        {
+                            "codegenResult": 2,
+                            "column": 23,
+                            "durationMicroseconds": 0,
+                            "functionName": "onSessionChanged",
+                            "line": 41,
+                            "message": "Cannot retrieve a non-object type by ID: termWidget"
+                        },
+                        {
+                            "codegenResult": 2,
+                            "column": 18,
+                            "durationMicroseconds": 0,
+                            "functionName": "session",
+                            "line": 13,
+                            "message": "Could not find property \"session\"."
+                        },
+                        {
+                            "codegenResult": 2,
+                            "column": 26,
+                            "durationMicroseconds": 0,
+                            "functionName": "backgroundColor",
+                            "line": 16,
+                            "message": "Could not find property \"backgroundColor\"."
+                        },
+                        {
+                            "codegenResult": 2,
+                            "column": 26,
+                            "durationMicroseconds": 0,
+                            "functionName": "foregroundColor",
+                            "line": 17,
+                            "message": "Could not find property \"foregroundColor\"."
+                        },
+                        {
+                            "codegenResult": 2,
+                            "column": 22,
+                            "durationMicroseconds": 0,
+                            "functionName": "cursorColor",
+                            "line": 18,
+                            "message": "Could not find property \"cursorColor\"."
+                        },
+                        {
+                            "codegenResult": 2,
+                            "column": 25,
+                            "durationMicroseconds": 0,
+                            "functionName": "selectionColor",
+                            "line": 19,
+                            "message": "Could not find property \"selectionColor\"."
+                        },
+                        {
+                            "codegenResult": 2,
+                            "column": 23,
+                            "durationMicroseconds": 0,
+                            "functionName": "fill",
+                            "line": 12,
+                            "message": "Could not find property \"fill\"."
+                        },
+                        {
+                            "codegenResult": 0,
+                            "column": 26,
+                            "durationMicroseconds": 0,
+                            "functionName": "acceptedButtons",
+                            "line": 33,
+                            "message": ""
+                        },
+                        {
+                            "codegenResult": 2,
+                            "column": 20,
+                            "durationMicroseconds": 0,
+                            "functionName": "onPressed",
+                            "line": 35,
+                            "message": "Cannot retrieve a non-object type by ID: termWidget"
+                        },
+                        {
+                            "codegenResult": 0,
+                            "column": 20,
+                            "durationMicroseconds": 0,
+                            "functionName": "onPressed",
+                            "line": 35,
+                            "message": ""
+                        },
+                        {
+                            "codegenResult": 0,
+                            "column": 23,
+                            "durationMicroseconds": 0,
+                            "functionName": "fill",
+                            "line": 32,
+                            "message": ""
+                        }
+                    ],
+                    "filePath": "/home/lufuno/Documents/chi-shell/apps/shinobi/qml/TerminalPane.qml"
+                }
+            ],
+            "moduleId": "Shinobi(shinobi)"
+        }
+    ]
+}

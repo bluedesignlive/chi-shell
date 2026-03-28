@@ -2,11 +2,18 @@
 #include "ShellSurface.h"
 #include "WayfireIPC.h"
 #include "WindowTracker.h"
-#include "NotificationServer.h"
-#include "SystemStatus.h"
+#include "Notification/NotificationServer.h"
+#include "statusbar/SystemStatus.h"
+#include "statusbar/WifiManager.h"
+#include "statusbar/MprisController.h"
+#include "statusbar/PowerProfileManager.h"
+#include "statusbar/ScreenCapture.h"
+#include "statusbar/NightLightManager.h"
+#include "statusbar/PowerActions.h"
 #include "DesktopEntryModel.h"
 #include "PinnedAppsModel.h"
 #include "GroupedWindowsModel.h"
+#include "TrashManager.h"
 #include "XdgIconProvider.h"
 #include "WindowThumbnailProvider.h"
 
@@ -34,6 +41,7 @@ ShellManager::~ShellManager()
     delete m_statusBar;
     delete m_quickSettings;
     delete m_notificationCenter;
+    delete m_notificationPopup;
     delete m_appLauncher;
 }
 
@@ -68,6 +76,12 @@ bool ShellManager::initialize()
 
     // ── System status ────────────────────────────────────
     m_systemStatus = new SystemStatus(this);
+    m_wifiManager = new WifiManager(this);
+    m_mprisController = new MprisController(this);
+    m_powerProfiles = new PowerProfileManager(this);
+    m_screenCapture = new ScreenCapture(this);
+    m_nightLight = new NightLightManager(this);
+    m_powerActions = new PowerActions(this);
 
     // ── Desktop entries ──────────────────────────────────
     m_desktopEntries = new DesktopEntryModel(this);
@@ -117,6 +131,9 @@ bool ShellManager::initialize()
     connect(watcher, &QFileSystemWatcher::directoryChanged,
             this, [refreshTimer](const QString &) { refreshTimer->start(); });
 
+    // ── Trash manager ────────────────────────────────────
+    m_trashManager = new TrashManager(this);
+
     createSurfaces();
 
     // Track screen geometry changes (resolution, rotation, etc.)
@@ -131,6 +148,8 @@ bool ShellManager::initialize()
         }
         if (m_statusBar)
             m_statusBar->setSize(m_screenWidth, 36);
+        if (m_notificationPopup)
+            m_notificationPopup->setSize(m_screenWidth, 180);
     });
 
     qDebug() << "ShellManager: initialized";
@@ -162,9 +181,16 @@ void ShellManager::registerContextProperties()
     ctx->setContextProperty("groupedWindows",   m_groupedWindows);
     ctx->setContextProperty("notifications",    m_notificationServer);
     ctx->setContextProperty("systemStatus",     m_systemStatus);
+    ctx->setContextProperty("wifiManager", m_wifiManager);
+    ctx->setContextProperty("mprisController", m_mprisController);
+    ctx->setContextProperty("powerProfiles", m_powerProfiles);
+    ctx->setContextProperty("screenCapture", m_screenCapture);
+    ctx->setContextProperty("nightLight", m_nightLight);
+    ctx->setContextProperty("powerActions", m_powerActions);
     ctx->setContextProperty("appEntries",       m_desktopEntries);
     ctx->setContextProperty("appFilter",        m_appFilter);
     ctx->setContextProperty("wayfireIPC",       m_wayfireIPC);
+    ctx->setContextProperty("trashManager",     m_trashManager);
     ctx->setContextProperty("TASKBAR_BAR_H",    BAR_H);
     ctx->setContextProperty("TASKBAR_POPUP_H",  POPUP_H);
 }
@@ -215,7 +241,7 @@ void ShellManager::createSurfaces()
     m_statusBar->setKeyboardMode(ShellSurface::KeyboardNone);
     m_statusBar->setSize(m_screenWidth, 36);
     m_statusBar->setScope("chi-statusbar");
-    m_statusBar->setSource(qmlPath("StatusBar.qml"));
+    m_statusBar->setSource(qmlPath("statusbar/StatusBar.qml"));
     m_statusBar->show();
 
     // ── Taskbar (bottom) ─────────────────────────────────
@@ -239,7 +265,20 @@ void ShellManager::createSurfaces()
     m_quickSettings->setKeyboardMode(ShellSurface::KeyboardExclusive);
     m_quickSettings->setSize(412, screen->geometry().height() - 36);
     m_quickSettings->setScope("chi-quicksettings");
-    m_quickSettings->setSource(qmlPath("QuickSettings.qml"));
+    m_quickSettings->setSource(qmlPath("statusbar/QuickSettings.qml"));
+
+
+    // ── Notification popup overlay ───────────────────────
+    m_notificationPopup = new ShellSurface(m_engine, this);
+    m_notificationPopup->setContextProperty("popupSurface", m_notificationPopup);
+    m_notificationPopup->setLayer(ShellSurface::Overlay);
+    m_notificationPopup->setAnchors(Anchors(A::AnchorTop | A::AnchorLeft | A::AnchorRight));
+    m_notificationPopup->setExclusiveZone(0);
+    m_notificationPopup->setKeyboardMode(ShellSurface::KeyboardNone);
+    m_notificationPopup->setSize(m_screenWidth, 180);
+    m_notificationPopup->setScope("chi-notification-popup");
+    m_notificationPopup->setSource(qmlPath("Notification/NotificationPopupHost.qml"));
+    m_notificationPopup->hide();
 
     // ── Notification center overlay ──────────────────────
     m_notificationCenter = new ShellSurface(m_engine, this);
@@ -247,8 +286,9 @@ void ShellManager::createSurfaces()
     m_notificationCenter->setAnchors(Anchors(A::AnchorTop | A::AnchorBottom | A::AnchorLeft | A::AnchorRight));
     m_notificationCenter->setExclusiveZone(0);
     m_notificationCenter->setKeyboardMode(ShellSurface::KeyboardExclusive);
+    m_notificationCenter->setSize(screen->geometry().width(), screen->geometry().height());
     m_notificationCenter->setScope("chi-notifications");
-    m_notificationCenter->setSource(qmlPath("NotificationCenter.qml"));
+    m_notificationCenter->setSource(qmlPath("Notification/NotificationCenter.qml"));
 
     // ── App launcher overlay ─────────────────────────────
     m_appLauncher = new ShellSurface(m_engine, this);
@@ -277,6 +317,7 @@ void ShellManager::setQuickSettingsOpen(bool open)
 void ShellManager::setNotificationCenterOpen(bool open)
 {
     if (m_notificationCenterOpen == open) return;
+    qDebug() << "ShellManager: notificationCenterOpen =" << open;
     m_notificationCenterOpen = open;
     if (open) {
         setQuickSettingsOpen(false);

@@ -1,0 +1,472 @@
+Chi Shell — Full Restructure + Bug Fixes + New Features
+📁 Project Tree
+text
+
+chi-shell/
+├── CMakeLists.txt
+├── chi-shell.spec
+├── dbus/
+│   └── org.freedesktop.Notifications.xml
+├── protocols/
+│   └── wlr-foreign-toplevel-management-unstable-v1.xml
+├── fonts/
+├── plugins/
+├── src/
+│   ├── main.cpp
+│   ├── core/
+│   │   ├── ShellManager.h          ← UPDATED
+│   │   ├── ShellManager.cpp        ← UPDATED
+│   │   ├── ShellSurface.h          ← moved
+│   │   └── ShellSurface.cpp        ← moved
+│   ├── wayland/
+│   │   ├── WayfireIPC.h            ← moved
+│   │   ├── WayfireIPC.cpp
+│   │   ├── WindowTracker.h         ← moved
+│   │   └── WindowTracker.cpp
+│   ├── statusbar/
+│   │   ├── DBusHelper.h            ★ NEW
+│   │   ├── SystemStatus.h          ★ REWRITTEN
+│   │   ├── SystemStatus.cpp        ★ REWRITTEN
+│   │   ├── BatteryProvider.h       ★ NEW
+│   │   ├── BatteryProvider.cpp     ★ NEW
+│   │   ├── NetworkProvider.h       ★ NEW (pure D-Bus, no nmcli)
+│   │   ├── NetworkProvider.cpp     ★ NEW
+│   │   ├── BluetoothProvider.h     ★ NEW
+│   │   ├── BluetoothProvider.cpp   ★ NEW
+│   │   ├── AudioProvider.h         ★ NEW
+│   │   ├── AudioProvider.cpp       ★ NEW
+│   │   ├── BrightnessProvider.h    ★ NEW
+│   │   ├── BrightnessProvider.cpp  ★ NEW
+│   │   ├── MprisController.h       ★ NEW
+│   │   ├── MprisController.cpp     ★ NEW
+│   │   ├── PowerProfileProvider.h  ★ NEW
+│   │   └── PowerProfileProvider.cpp★ NEW
+│   ├── models/
+│   │   ├── DesktopEntryModel.h     ← moved
+│   │   ├── DesktopEntryModel.cpp
+│   │   ├── PinnedAppsModel.h
+│   │   ├── PinnedAppsModel.cpp
+│   │   ├── GroupedWindowsModel.h
+│   │   └── GroupedWindowsModel.cpp
+│   ├── notifications/
+│   │   ├── NotificationServer.h    ← moved
+│   │   └── NotificationServer.cpp
+│   ├── desktop/
+│   │   ├── TrashManager.h          ← moved
+│   │   └── TrashManager.cpp
+│   └── providers/
+│       ├── XdgIconProvider.h       ← moved
+│       ├── XdgIconProvider.cpp
+│       ├── WindowThumbnailProvider.h
+│       └── WindowThumbnailProvider.cpp
+└── qml/
+    ├── Chi/                        ← existing module (Icon, ChiTheme)
+    │   └── qmldir
+    ├── Desktop.qml
+    ├── Taskbar.qml
+    ├── AppLauncher.qml
+    ├── NotificationCenter.qml
+    ├── statusbar/
+    │   └── StatusBar.qml           ★ MOVED + UPDATED
+    └── quicksettings/
+        ├── QuickSettings.qml       ★ REWRITTEN
+        ├── SettingsTile.qml        ★ REWRITTEN
+        ├── BrightnessSlider.qml    ★ NEW
+        ├── VolumeSlider.qml        ★ NEW
+        └── MediaPlayerWidget.qml   ★ NEW
+C++ — Status Bar Providers
+src/statusbar/DBusHelper.h
+C++
+
+#ifndef DBUSHELPER_H
+#define DBUSHELPER_H
+
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusVariant>
+#include <QDBusArgument>
+#include <QDBusObjectPath>
+#include <QVariant>
+
+namespace DBus {
+
+inline QVariant property(QDBusConnection bus,
+                         const QString &service, const QString &path,
+                         const QString &iface,   const QString &prop)
+{
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        service, path, QStringLiteral("org.freedesktop.DBus.Properties"),
+        QStringLiteral("Get"));
+    msg << iface << prop;
+
+    QDBusMessage reply = bus.call(msg, QDBus::Block, 2000);
+    if (reply.type() == QDBusMessage::ReplyMessage && !reply.arguments().isEmpty())
+        return reply.arguments().at(0).value<QDBusVariant>().variant();
+    return {};
+}
+
+inline QVariant systemProp(const QString &svc, const QString &path,
+                           const QString &iface, const QString &prop)
+{
+    return property(QDBusConnection::systemBus(), svc, path, iface, prop);
+}
+
+inline QVariant sessionProp(const QString &svc, const QString &path,
+                            const QString &iface, const QString &prop)
+{
+    return property(QDBusConnection::sessionBus(), svc, path, iface, prop);
+}
+
+inline bool setSystemProp(const QString &svc, const QString &path,
+                          const QString &iface, const QString &prop,
+                          const QVariant &value)
+{
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        svc, path, QStringLiteral("org.freedesktop.DBus.Properties"),
+        QStringLiteral("Set"));
+    msg << iface << prop << QVariant::fromValue(QDBusVariant(value));
+
+    QDBusMessage reply = QDBusConnection::systemBus().call(msg, QDBus::Block, 2000);
+    return reply.type() == QDBusMessage::ReplyMessage;
+}
+
+} // namespace DBus
+
+#endif // DBUSHELPER_H
+src/statusbar/BatteryProvider.h
+C++
+
+#ifndef BATTERYPROVIDER_H
+#define BATTERYPROVIDER_H
+
+#include <QObject>
+
+class BatteryProvider : public QObject
+{
+    Q_OBJECT
+public:
+    explicit BatteryProvider(QObject *parent = nullptr);
+
+    bool hasBattery()  const { return m_hasBattery; }
+    int  percent()     const { return m_percent; }
+    bool charging()    const { return m_charging; }
+    QString icon()     const;
+
+    void poll();
+
+signals:
+    void changed();
+
+private slots:
+    void onPropertiesChanged(const QString &iface,
+                             const QVariantMap &changed,
+                             const QStringList &invalidated);
+
+private:
+    void detectBattery();
+
+    bool m_hasBattery = false;
+    int  m_percent    = 100;
+    bool m_charging   = false;
+};
+
+#endif
+src/statusbar/BatteryProvider.cpp
+C++
+
+#include "BatteryProvider.h"
+#include "DBusHelper.h"
+
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDebug>
+
+static const auto UPOWER  = QStringLiteral("org.freedesktop.UPower");
+static const auto DEV     = QStringLiteral("/org/freedesktop/UPower/devices/DisplayDevice");
+static const auto DEV_IF  = QStringLiteral("org.freedesktop.UPower.Device");
+
+BatteryProvider::BatteryProvider(QObject *parent)
+    : QObject(parent)
+{
+    detectBattery();
+
+    if (m_hasBattery) {
+        QDBusConnection::systemBus().connect(
+            UPOWER, DEV,
+            QStringLiteral("org.freedesktop.DBus.Properties"),
+            QStringLiteral("PropertiesChanged"),
+            this, SLOT(onPropertiesChanged(QString,QVariantMap,QStringList)));
+    }
+}
+
+void BatteryProvider::detectBattery()
+{
+    QDBusInterface dev(UPOWER, DEV, DEV_IF, QDBusConnection::systemBus());
+    if (!dev.isValid()) {
+        m_hasBattery = false;
+        return;
+    }
+
+    // Type: 0=Unknown, 1=Line Power, 2=Battery, 3=UPS ...
+    uint type = dev.property("Type").toUInt();
+    bool present = dev.property("IsPresent").toBool();
+
+    // Only treat as battery if Type==2 and IsPresent==true
+    // Also accept Type==0 with Percentage > 0 (some ACPI quirks)
+    if (type == 2 && present) {
+        m_hasBattery = true;
+    } else if (type == 0) {
+        double pct = dev.property("Percentage").toDouble();
+        m_hasBattery = (present && pct > 0);
+    } else {
+        m_hasBattery = false;
+    }
+}
+
+void BatteryProvider::poll()
+{
+    if (!m_hasBattery) {
+        // Re-check availability (hotplug battery / dock)
+        bool had = m_hasBattery;
+        detectBattery();
+        if (m_hasBattery != had)
+            emit changed();
+        if (!m_hasBattery)
+            return;
+    }
+
+    int pct = static_cast<int>(
+        DBus::systemProp(UPOWER, DEV, DEV_IF, "Percentage").toDouble());
+    uint state = DBus::systemProp(UPOWER, DEV, DEV_IF, "State").toUInt();
+    // 1=charging, 4=fully-charged, 5=pending-charge
+    bool chg = (state == 1 || state == 4 || state == 5);
+
+    if (pct != m_percent || chg != m_charging) {
+        m_percent  = pct;
+        m_charging = chg;
+        emit changed();
+    }
+}
+
+void BatteryProvider::onPropertiesChanged(const QString &iface,
+                                          const QVariantMap &,
+                                          const QStringList &)
+{
+    if (iface == DEV_IF)
+        poll();
+}
+
+QString BatteryProvider::icon() const
+{
+    if (m_charging)         return QStringLiteral("battery_charging_full");
+    if (m_percent > 90)     return QStringLiteral("battery_full");
+    if (m_percent > 60)     return QStringLiteral("battery_5_bar");
+    if (m_percent > 30)     return QStringLiteral("battery_3_bar");
+    if (m_percent > 10)     return QStringLiteral("battery_1_bar");
+    return QStringLiteral("battery_alert");
+}
+src/statusbar/NetworkProvider.h
+C++
+
+#ifndef NETWORKPROVIDER_H
+#define NETWORKPROVIDER_H
+
+#include <QObject>
+#include <QDBusObjectPath>
+
+class NetworkProvider : public QObject
+{
+    Q_OBJECT
+public:
+    explicit NetworkProvider(QObject *parent = nullptr);
+
+    bool available()          const { return m_available; }
+    bool wifiEnabled()        const { return m_wifiEnabled; }
+    bool wifiConnected()      const { return m_wifiConnected; }
+    QString ssid()            const { return m_ssid; }
+    int  wifiStrength()       const { return m_strength; }
+    bool ethernetConnected()  const { return m_ethConnected; }
+    bool networkConnected()   const { return m_wifiConnected || m_ethConnected; }
+    QString icon()            const;
+
+    void setWifiEnabled(bool on);
+    void poll();
+
+signals:
+    void changed();
+
+private slots:
+    void onNmStateChanged(uint state);
+    void onPropertiesChanged(const QString &iface,
+                             const QVariantMap &changed,
+                             const QStringList &invalidated);
+
+private:
+    void connectSignals();
+    void readActiveConnections();
+
+    bool    m_available     = false;
+    bool    m_wifiEnabled   = false;
+    bool    m_wifiConnected = false;
+    QString m_ssid;
+    int     m_strength      = 0;
+    bool    m_ethConnected  = false;
+};
+
+#endif
+src/statusbar/NetworkProvider.cpp
+C++
+
+#include "NetworkProvider.h"
+#include "DBusHelper.h"
+
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusArgument>
+#include <QDebug>
+
+static const auto NM_SVC  = QStringLiteral("org.freedesktop.NetworkManager");
+static const auto NM_PATH = QStringLiteral("/org/freedesktop/NetworkManager");
+static const auto NM_IF   = QStringLiteral("org.freedesktop.NetworkManager");
+static const auto AC_IF   = QStringLiteral("org.freedesktop.NetworkManager.Connection.Active");
+static const auto WL_IF   = QStringLiteral("org.freedesktop.NetworkManager.Device.Wireless");
+static const auto AP_IF   = QStringLiteral("org.freedesktop.NetworkManager.AccessPoint");
+
+NetworkProvider::NetworkProvider(QObject *parent)
+    : QObject(parent)
+{
+    QDBusInterface nm(NM_SVC, NM_PATH, NM_IF, QDBusConnection::systemBus());
+    m_available = nm.isValid();
+
+    if (m_available)
+        connectSignals();
+}
+
+void NetworkProvider::connectSignals()
+{
+    auto bus = QDBusConnection::systemBus();
+
+    bus.connect(NM_SVC, NM_PATH, NM_IF,
+                QStringLiteral("StateChanged"),
+                this, SLOT(onNmStateChanged(uint)));
+
+    bus.connect(NM_SVC, NM_PATH,
+                QStringLiteral("org.freedesktop.DBus.Properties"),
+                QStringLiteral("PropertiesChanged"),
+                this, SLOT(onPropertiesChanged(QString,QVariantMap,QStringList)));
+}
+
+void NetworkProvider::onNmStateChanged(uint) { poll(); }
+
+void NetworkProvider::onPropertiesChanged(const QString &iface,
+                                          const QVariantMap &changed,
+                                          const QStringList &)
+{
+    if (iface == NM_IF &&
+        (changed.contains("WirelessEnabled") ||
+         changed.contains("ActiveConnections") ||
+         changed.contains("State")))
+        poll();
+}
+
+void NetworkProvider::poll()
+{
+    QDBusInterface nm(NM_SVC, NM_PATH, NM_IF, QDBusConnection::systemBus());
+    if (!nm.isValid()) {
+        if (m_available) { m_available = false; emit changed(); }
+        return;
+    }
+    m_available = true;
+
+    bool wifiHw  = nm.property("WirelessHwEnabled").toBool();
+    bool wifiSw  = nm.property("WirelessEnabled").toBool();
+    uint nmState = nm.property("State").toUInt();
+    // 70 = NM_STATE_CONNECTED_GLOBAL
+    bool globalConn = (nmState >= 70);
+
+    bool wifiEnabled = wifiHw && wifiSw;
+    bool wifiConn  = false;
+    bool ethConn   = false;
+    QString ssid;
+    int strength   = 0;
+
+    if (globalConn)
+        readActiveConnections();
+    else {
+        // not connected at all
+    }
+
+    // ── Read active connections inline for clarity ───────
+    if (globalConn) {
+        QVariant v = DBus::systemProp(NM_SVC, NM_PATH, NM_IF, "ActiveConnections");
+        if (v.isValid()) {
+            const QDBusArgument arg = v.value<QDBusArgument>();
+            QList<QDBusObjectPath> conns;
+            arg >> conns;
+
+            for (const auto &cp : conns) {
+                QString type = DBus::systemProp(NM_SVC, cp.path(), AC_IF, "Type").toString();
+                uint connState = DBus::systemProp(NM_SVC, cp.path(), AC_IF, "State").toUInt();
+                // 2 = NM_ACTIVE_CONNECTION_STATE_ACTIVATED
+                if (connState != 2) continue;
+
+                if (type == "802-11-wireless") {
+                    wifiConn = true;
+
+                    // Get the wifi device from Devices array
+                    QVariant dv = DBus::systemProp(NM_SVC, cp.path(), AC_IF, "Devices");
+                    if (dv.isValid()) {
+                        QDBusArgument da = dv.value<QDBusArgument>();
+                        QList<QDBusObjectPath> devs;
+                        da >> devs;
+
+                        if (!devs.isEmpty()) {
+                            QString devPath = devs.first().path();
+
+                            // ActiveAccessPoint from the wireless device
+                            QVariant apv = DBus::systemProp(NM_SVC, devPath, WL_IF,
+                                                            "ActiveAccessPoint");
+                            if (apv.isValid()) {
+                                QString apPath = apv.value<QDBusObjectPath>().path();
+                                if (!apPath.isEmpty() && apPath != "/") {
+                                    QByteArray raw = DBus::systemProp(
+                                        NM_SVC, apPath, AP_IF, "Ssid").toByteArray();
+                                    ssid = QString::fromUtf8(raw);
+                                    strength = DBus::systemProp(
+                                        NM_SVC, apPath, AP_IF, "Strength").toUInt();
+                                }
+                            }
+                        }
+                    }
+                } else if (type == "802-3-ethernet") {
+                    ethConn = true;
+                }
+            }
+        }
+    }
+
+    if (wifiEnabled != m_wifiEnabled || wifiConn != m_wifiConnected ||
+        ssid != m_ssid || strength != m_strength || ethConn != m_ethConnected) {
+        m_wifiEnabled   = wifiEnabled;
+        m_wifiConnected = wifiConn;
+        m_ssid          = ssid;
+        m_strength      = strength;
+        m_ethConnected  = ethConn;
+        emit changed();
+    }
+}
+
+void NetworkProvider::readActiveConnections()
+{
+    // integrated into poll() for simplicity
+}
+
+QString NetworkProvider::icon() const
+{
+    if (!m_available)       return QStringLiteral("wifi_off");
+    if (m_ethConnected && !m_wifiConnected) return QStringLiteral("lan");
+    if (!m_wifiEnabled)     return QStringLiteral("wifi_off");
+    if (!m_wifiConnected)   return QStringLiteral("wifi_find");
+    if (m_strength > 75)    return QStringLiteral("wifi");
+    if (m_strength > 50)    return QStringLiteral("network_wifi_3_bar");
+    if (m_strength > 25)    return 

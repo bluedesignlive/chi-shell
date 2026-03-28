@@ -1,0 +1,14 @@
+-rootPath
+/home/lufuno/Documents/chi-shell/apps/shinobi
+-cmake-output
+-output-file
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/.qt/qml_imports/shinobi_build.cmake
+-importPath
+/home/lufuno/Documents/chi-shell/apps/shinobi/build
+-importPath
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/Shinobi
+-importPath
+/usr/lib64/qt6/qml
+-qrcFiles
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/.qt/rcc/qmake_Shinobi.qrc
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/.qt/rcc/shinobi_raw_qml_0.qrc

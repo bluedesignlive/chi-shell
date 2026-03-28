@@ -51,12 +51,19 @@ add_executable(chi-shell
     src/ShellSurface.cpp
     src/ShellManager.cpp
     src/WindowTracker.cpp
-    src/NotificationServer.cpp
-    src/SystemStatus.cpp
+    src/Notification/NotificationServer.cpp
+    src/statusbar/SystemStatus.cpp
+    src/statusbar/WifiManager.cpp
+    src/statusbar/MprisController.cpp
+    src/statusbar/PowerProfileManager.cpp
+    src/statusbar/ScreenCapture.cpp
+    src/statusbar/NightLightManager.cpp
+    src/statusbar/PowerActions.cpp
     src/WayfireIPC.cpp
     src/DesktopEntryModel.cpp
     src/PinnedAppsModel.cpp
     src/GroupedWindowsModel.cpp
+    src/TrashManager.cpp
 )
 
 target_include_directories(chi-shell PRIVATE

@@ -1,0 +1,8 @@
+--resource
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/.qt/rcc/qmake_Shinobi.qrc
+--resource
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/.qt/rcc/shinobi_raw_qml_0.qrc
+/Shinobi/qml/Main.qml
+/Shinobi/qml/TerminalTabBar.qml
+/Shinobi/qml/TerminalPane.qml
+/Shinobi/qml/TerminalStatusBar.qml

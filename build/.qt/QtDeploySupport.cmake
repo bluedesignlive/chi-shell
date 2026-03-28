@@ -27,7 +27,7 @@ if(QT_DEPLOY_PREFIX STREQUAL "")
     set(QT_DEPLOY_PREFIX .)
 endif()
 if(NOT QT_DEPLOY_IGNORED_LIB_DIRS)
-    set(QT_DEPLOY_IGNORED_LIB_DIRS "/lib64;/lib")
+    set(QT_DEPLOY_IGNORED_LIB_DIRS "/lib64")
 endif()
 
 # These are internal implementation details. They may be removed at any time.
@@ -61,8 +61,8 @@ set(__QT_DEPLOY_QT_DEBUG_POSTFIX "")
 # Define the CMake commands to be made available during deployment.
 set(__qt_deploy_support_files
     "/home/lufuno/Documents/chi-shell/build/.qt/QtDeployTargets.cmake"
-    "/usr/lib64/cmake/Qt6Core/Qt6CoreDeploySupport.cmake"
-    "/usr/lib64/cmake/Qt6Qml/Qt6QmlDeploySupport.cmake"
+    "/usr/lib/cmake/Qt6Core/Qt6CoreDeploySupport.cmake"
+    "/usr/lib/cmake/Qt6Qml/Qt6QmlDeploySupport.cmake"
 )
 foreach(__qt_deploy_support_file IN LISTS __qt_deploy_support_files)
     include("${__qt_deploy_support_file}")

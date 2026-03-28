@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="/Shinobi/">
+    <file alias="qml/Main.qml">/home/lufuno/Documents/chi-shell/apps/shinobi/qml/Main.qml</file>
+    <file alias="qml/TerminalTabBar.qml">/home/lufuno/Documents/chi-shell/apps/shinobi/qml/TerminalTabBar.qml</file>
+    <file alias="qml/TerminalPane.qml">/home/lufuno/Documents/chi-shell/apps/shinobi/qml/TerminalPane.qml</file>
+    <file alias="qml/TerminalStatusBar.qml">/home/lufuno/Documents/chi-shell/apps/shinobi/qml/TerminalStatusBar.qml</file>
+  </qresource>
+</RCC>
+

@@ -1,0 +1,5236 @@
+
+
+
+
+
+
+
+Direct
+
+
+claude-opus-4-6-search
+
+claude-opus-4-6-search
+Searching...
+
+That critique is razor-sharp and completely correct. Let me restructure this properly — four clean documents, each with a single responsibility, no leaking across boundaries.
+
+Document 1: spec.md
+Markdown
+
+# Chi Terminal — Product Specification
+# Version 0.1.0 | March 2026
+
+> The product contract. What we build, why, for whom, and how we know
+> it's done. No code. No architecture. No implementation.
+
+---
+
+## Table of Contents
+
+1. [Product Vision](#1-product-vision)
+2. [Design Pillars](#2-design-pillars)
+3. [Target Users](#3-target-users)
+4. [Platform Targets](#4-platform-targets)
+5. [Tier 1 — Core Terminal (MVP)](#5-tier-1--core-terminal-mvp)
+6. [Tier 2 — Power Features](#6-tier-2--power-features)
+7. [Tier 3 — Advanced & AI](#7-tier-3--advanced--ai)
+8. [Performance Budget](#8-performance-budget)
+9. [Acceptance Criteria](#9-acceptance-criteria)
+10. [Non-Goals & Anti-Patterns](#10-non-goals--anti-patterns)
+11. [Reference Terminals Studied](#11-reference-terminals-studied)
+
+---
+
+## 1. Product Vision
+
+Chi Terminal is a modern, GPU-accelerated terminal emulator for Linux
+desktops. It combines the speed of native rendering with the beauty of
+Material 3 Expressive design via the Chi QML component library.
+
+It should work perfectly with zero configuration, yet offer deep
+customization for power users who want it.
+
+**One sentence**: The terminal that's fast enough you never notice it,
+beautiful enough you actually enjoy it, and smart enough it helps you
+work.
+
+---
+
+## 2. Design Pillars
+
+| # | Pillar | Meaning |
+|---|--------|---------|
+| 1 | **Fast by default** | GPU-rendered grid. Instant startup. No perceptible lag, ever. |
+| 2 | **Zero-config beauty** | Material 3 theming out of the box. No setup required to look great. |
+| 3 | **Keyboard-sovereign** | Every feature accessible without touching a mouse. |
+| 4 | **Privacy-first, local-first** | No accounts. No telemetry. No cloud dependency. |
+| 5 | **Don't reinvent the wheel** | Use best-in-class libraries for core functionality. |
+| 6 | **Progressive disclosure** | Simple surface, deep power underneath. Complexity is opt-in. |
+
+---
+
+## 3. Target Users
+
+| Segment | Description | Priority |
+|---------|-------------|----------|
+| **Primary** | Developers who live in the terminal daily. They use TUI apps (neovim, lazygit, btop), run build tools, SSH into servers. They care about speed, correctness, and keyboard efficiency. | P0 |
+| **Secondary** | System administrators managing remote servers. Multiple SSH sessions, monitoring, log tailing. They need tabs, panes, and session durability. | P1 |
+| **Tertiary** | Casual users who want a beautiful, fast default terminal. They run occasional commands and want something that "just works" without configuration. | P2 |
+
+---
+
+## 4. Platform Targets
+
+| Platform | Display Server | Priority | Timeline |
+|----------|---------------|----------|----------|
+| Linux | Wayland (primary) | P0 | Tier 1 |
+| Linux | X11 (supported) | P0 | Tier 1 |
+| macOS | Native | P2 | Post Tier 3 |
+| Windows | — | P3 | Not in scope |
+
+---
+
+## 5. Tier 1 — Core Terminal (MVP)
+
+> **Goal**: A fully functional, fast, beautiful terminal emulator that
+> can replace your daily driver. Rock-solid fundamentals only.
+
+### 5.1 Terminal Emulation
+
+The terminal must be a correct, modern VT emulator. Users should never
+encounter broken rendering in any standard tool.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| VT220 + xterm-256color compatibility | Full escape sequence parsing, passes vttest | P0 |
+| True color (24-bit) | 16.7 million colors via SGR sequences | P0 |
+| Unicode | Full grapheme cluster segmentation, combining characters | P0 |
+| Emoji | Color emoji rendering via system fonts | P0 |
+| Wide characters | CJK double-width with correct cursor positioning | P0 |
+| Alternate screen buffer | Correct switching for TUI applications | P0 |
+| Scrollback buffer | Configurable (default 10,000 lines, option for unlimited) | P0 |
+| Bracketed paste | Prevent paste injection attacks (mode 2004) | P0 |
+| Hyperlinks | OSC 8 — clickable links emitted by CLI tools | P0 |
+| Synchronized rendering | DEC mode 2026 — prevent tearing in TUI apps | P0 |
+| Kitty Keyboard Protocol | Modern keyboard encoding for Neovim, etc. | P0 |
+| Mouse reporting | All standard modes (1000, 1002, 1003, 1006 SGR) | P0 |
+| Text reflow | Soft-wrapped lines reflow when terminal resizes | P0 |
+
+### 5.2 Tabs
+
+Users need multiple terminal sessions organized in tabs. Tab management
+must be fast and keyboard-driven.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Create tab | Keyboard shortcut, button, or context action | P0 |
+| Close tab | With confirmation if a process is running | P0 |
+| Switch tabs | Next/previous cycling and direct jump (Alt+1-9) | P0 |
+| Reorder tabs | Drag-to-reorder with mouse | P0 |
+| Tab title | Derived from shell integration (CWD, command, hostname) or process name | P0 |
+| Tab bar visibility | Configurable: always, when multiple, never | P0 |
+| New tab inherits CWD | New tab opens in same directory as current | P0 |
+
+### 5.3 Split Panes
+
+Users need to see multiple terminals simultaneously without leaving
+the window. Splits must be keyboard-driven with smart defaults.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Vertical split | Divide pane left/right | P0 |
+| Horizontal split | Divide pane top/bottom | P0 |
+| Navigate between panes | Vim-style directional navigation (H/J/K/L) | P0 |
+| Close pane | Close current pane, redistribute space | P0 |
+| Zen mode | Maximize/restore any single pane to fill the tab | P0 |
+| Auto-layout | System chooses H/V split based on current pane aspect ratio | P0 |
+| Resize panes | Keyboard-driven resize in increments | P0 |
+| Mouse resize | Thin drag handle between panes with snap points | P0 |
+| Predefined layouts | 1-up, 2-column, 2-row, L-shape, grid — accessible via command | P1 |
+
+**Design constraint**: No arbitrary freeform splitter dragging. Pane
+boundaries snap to sensible ratios (25/33/50/67/75%). Resize handles
+are minimal (4px) and non-intrusive.
+
+### 5.4 Search
+
+Users need to find text in terminal output quickly.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| In-tab search | Search through current scrollback buffer | P0 |
+| Highlight all matches | All matches visually highlighted simultaneously | P0 |
+| Navigate matches | Step forward/backward through matches | P0 |
+| Regex support | Toggle between plain text and regular expression | P0 |
+| Case sensitivity | Toggle case-sensitive search | P0 |
+| Match count | Display "N of M" match indicator | P0 |
+| Keyboard-only | Open, search, navigate, close — all without mouse | P0 |
+
+### 5.5 Copy, Paste & Selection
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Click-drag selection | Select text region with mouse | P0 |
+| Word selection | Double-click selects word | P0 |
+| Line selection | Triple-click selects line | P0 |
+| Rectangular selection | Alt+click-drag for column selection | P0 |
+| Smart Ctrl+C | Copy if text is selected; send SIGINT if not | P0 |
+| Explicit copy/paste | Ctrl+Shift+C / Ctrl+Shift+V always work | P0 |
+| Bracketed paste | Paste wrapped in bracket sequences for safety | P0 |
+| Auto-copy on select | Optional behavior (off by default) | P1 |
+| Smart selection | Quad-click selects semantic unit (URL, path, quoted string) | P1 |
+
+### 5.6 Context Menu
+
+The right-click menu must be context-aware — showing different options
+based on what's under the cursor.
+
+| Detected Context | Expected Menu Items |
+|-----------------|---------------------|
+| **Empty area** | Paste, Select All, Clear Terminal, ─, Split Right, Split Down, ─, New Tab |
+| **Selected text** | Copy, ─, Search Web, ─, Paste, Select All |
+| **URL / Hyperlink** | Open Link, Copy URL, ─, Copy, Paste |
+| **File path** | Open File, Open in File Manager, Copy Path, ─, Copy, Paste |
+
+Context detection must handle:
+- URLs (http://, https://, ftp://)
+- File paths (absolute, relative, ~-prefixed)
+- Selected text takes precedence over other detection
+
+### 5.7 Clickable Elements
+
+| Element | Trigger | Action |
+|---------|---------|--------|
+| URLs | Ctrl+Click or OSC 8 | Open in default browser |
+| File paths | Ctrl+Click | Open in default editor or file manager |
+
+Visual treatment: underline appears on Ctrl+hover, cursor changes to
+pointer. No underlines without Ctrl held (avoids visual noise).
+
+### 5.8 Font System
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Configurable font family | Default: system monospace | P0 |
+| Configurable font size | Default: 13px, range 6-72 | P0 |
+| Font ligatures | Enabled by default, configurable | P0 |
+| Bold / Italic variants | Auto-detect or user-specified | P0 |
+| Zoom | Ctrl+= / Ctrl+- per-tab, Ctrl+0 reset | P0 |
+| HiDPI | Correct rendering on high-DPI displays | P0 |
+
+### 5.9 Theming & Colors
+
+Chi Terminal inherits Material 3 Dynamic Color from the Chi library.
+Terminal colors derive from the active theme automatically.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Material 3 integration | Terminal colors derived from ChiTheme tokens | P0 |
+| ANSI 16 colors | Configurable per scheme | P0 |
+| Dark/Light mode | Follows system or user preference, toggle | P0 |
+| Built-in color schemes | Material, Catppuccin, Tokyo Night, Dracula, Nord, Gruvbox | P0 |
+| Import schemes | iTerm2, Xresources, TOML formats | P1 |
+| Background opacity | 0.0 - 1.0 (requires compositor) | P1 |
+
+**Terminal-to-theme color mapping:**
+
+| Terminal Element | ChiTheme Token |
+|-----------------|---------------|
+| Background | surfaceContainerLowest |
+| Foreground | onSurface |
+| Cursor | primary |
+| Cursor text | onPrimary |
+| Selection background | primaryContainer |
+| Selection foreground | onPrimaryContainer |
+| URL underline | tertiary |
+| Search match background | tertiaryContainer |
+| Active search match | primary / onPrimary |
+
+### 5.10 Keyboard Shortcuts
+
+All shortcuts must be user-rebindable with conflict detection.
+
+**Default bindings:**
+
+| Action | Default Binding |
+|--------|----------------|
+| New tab | Ctrl+Shift+T |
+| Close tab/pane | Ctrl+Shift+W |
+| Next tab | Ctrl+Tab |
+| Previous tab | Ctrl+Shift+Tab |
+| Tab 1-9 | Alt+1 through Alt+9 |
+| Split vertical | Ctrl+Shift+D |
+| Split horizontal | Ctrl+Shift+E |
+| Navigate pane left | Ctrl+Shift+H |
+| Navigate pane down | Ctrl+Shift+J |
+| Navigate pane up | Ctrl+Shift+K |
+| Navigate pane right | Ctrl+Shift+L |
+| Maximize/restore pane | Ctrl+Shift+Enter |
+| Copy | Ctrl+Shift+C |
+| Paste | Ctrl+Shift+V |
+| Search | Ctrl+Shift+F |
+| Command palette | Ctrl+Shift+P |
+| Zoom in | Ctrl+Equal |
+| Zoom out | Ctrl+Minus |
+| Zoom reset | Ctrl+0 |
+| Fullscreen | F11 |
+| Settings | Ctrl+Shift+Comma |
+
+### 5.11 Configuration
+
+Configuration via TOML file with live reload. No configuration required
+for default usage.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| TOML config file | `$XDG_CONFIG_HOME/chiterm/chiterm.toml` | P0 |
+| XDG compliance | Respect XDG Base Directory spec | P0 |
+| Sensible defaults | Everything works without a config file | P0 |
+| Live reload | Changes apply without restart (most settings) | P0 |
+| Validation | Invalid config shows clear error, falls back to defaults | P0 |
+
+**Configurable settings categories:**
+- General (shell, TERM, scrollback, bell behavior)
+- Font (family, size, ligatures, line height)
+- Appearance (theme, color scheme, opacity, cursor style/blink, padding)
+- Tabs (bar visibility, position, new tab behavior)
+- Keybindings (all rebindable)
+
+### 5.12 Shell Integration
+
+The terminal should understand shell semantics — not just raw byte
+streams.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| CWD tracking | Know current directory per pane (OSC 7) | P0 |
+| Command timing | Measure duration of each command (OSC 133) | P0 |
+| Exit code detection | Know if last command succeeded/failed (OSC 133) | P0 |
+| Process name detection | Detect foreground process for tab title | P0 |
+| Auto tab title | Show CWD / running command / hostname | P0 |
+| Integration scripts | Ship scripts for bash, zsh, fish | P0 |
+
+### 5.13 Status Bar
+
+A minimal, informational bar at the bottom of each tab.
+
+| Element | Position | Content |
+|---------|----------|---------|
+| Current directory | Left | CWD icon + truncated path |
+| Git branch | Left (if applicable) | Branch icon + name |
+| Command duration | Right | Timer icon + duration (when > 1s) |
+| Exit indicator | Right | ✓ (success) or ✗ (failure) |
+
+The status bar must be:
+- Compact (≤ 24px height)
+- Non-intrusive (muted colors, small typography)
+- Hideable via config
+
+---
+
+## 6. Tier 2 — Power Features
+
+> **Goal**: Features that elevate Chi Terminal from "good terminal" to
+> "can't go back to anything else." Productivity, session management,
+> and desktop integration.
+
+### 6.1 Block-Based Output
+
+Commands and their output are grouped as discrete "blocks" — the
+single biggest UX innovation in modern terminals.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Command grouping | Each command + its output is a navigable block | P1 |
+| Block header | Shows command text, timestamp, duration | P1 |
+| Block actions | Copy output, re-run command, collapse — on hover | P1 |
+| Per-block search | Search within a single command's output | P1 |
+| Collapse/expand | Hide verbose completed output, expand on demand | P1 |
+| Block navigation | Keyboard shortcut to jump between blocks | P1 |
+
+**Depends on**: Shell integration (OSC 133) from Tier 1.
+
+**Design constraint**: Blocks are a UI overlay on the scrollback buffer,
+not a replacement. When shell integration is unavailable (e.g. SSH
+into a machine without integration scripts), the terminal degrades
+gracefully to a standard continuous scrollback.
+
+### 6.2 Command Palette
+
+A unified fuzzy-search launcher for all terminal actions.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Fuzzy search | Match against all registered actions | P1 |
+| Action categories | Tabs, Panes, Theme, Layout, Settings, Commands | P1 |
+| Recent commands | Quick re-run from shell history | P1 |
+| Keyboard-only | Full navigation without mouse | P1 |
+| Extensible | Tier 3 plugins can register actions | P1 |
+
+### 6.3 Session Persistence & Workspaces
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Auto-save on exit | Save window state, tabs, pane layouts, CWDs | P1 |
+| Auto-restore on launch | Reconstruct full session tree | P1 |
+| Named workspaces | User-defined workspace profiles ("Backend", "DevOps") | P1 |
+| Workspace switching | Via command palette or keybinding | P1 |
+
+### 6.4 Quake-Mode Dropdown
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Global hotkey | System-wide shortcut (default: F12) | P1 |
+| Slide animation | Smooth reveal from top of screen | P1 |
+| Auto-hide on focus loss | Configurable behavior | P1 |
+| Independent session | Separate tab/pane state from main window | P1 |
+
+### 6.5 Desktop Integration
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Long-running command notification | Desktop notification when command exceeding threshold completes | P1 |
+| Notification threshold | Configurable (default: 10 seconds) | P1 |
+| Urgency hint | Set WM urgency flag when notification fires | P1 |
+| Drag-and-drop | Drag files into terminal to paste paths | P1 |
+| D-Bus integration | Linux desktop notifications and shortcuts | P1 |
+
+### 6.6 Image Protocol Support
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Kitty graphics protocol | Display images inline in terminal | P1 |
+| Sixel graphics | Legacy protocol, widely supported by tools | P1 |
+| iTerm2 inline images | OSC 1337 protocol | P2 |
+
+### 6.7 Tab Enhancements
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Color-coded tabs | Auto-tint by context (SSH, root, local) | P1 |
+| Tab preview on hover | Thumbnail tooltip of terminal content | P1 |
+| Pin tabs | Persistent, non-closeable tabs | P1 |
+| Drag tab to pane | Drag a tab into a split to create a new pane | P1 |
+
+### 6.8 Cross-Tab Search
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Search all sessions | Global search across all open tabs | P1 |
+| Results grouped by tab | Show which tab contains each match | P1 |
+| Navigate to match | Click result to jump to the tab and position | P1 |
+
+### 6.9 Smart Selection
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| URL detection | Full URL including query parameters | P1 |
+| Path detection | Absolute and relative paths | P1 |
+| Quoted strings | Single and double quoted text | P1 |
+| IP addresses | IPv4 and IPv6 | P1 |
+| Email addresses | Standard format | P1 |
+| Quad-click trigger | Smart-select the detected semantic unit | P1 |
+| Context menu binding | Right-click on detected element shows relevant actions | P1 |
+
+### 6.10 Settings GUI
+
+A graphical settings panel built entirely with Chi components.
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| All Tier 1 settings | Accessible via GUI | P1 |
+| Live preview | Changes visible immediately | P1 |
+| Font preview | Show sample text in selected font/size | P1 |
+| Color scheme preview | Visual preview of each scheme | P1 |
+| Keybinding editor | Rebind with conflict detection | P1 |
+| Search settings | Filter/find specific settings | P1 |
+
+---
+
+## 7. Tier 3 — Advanced & AI
+
+> **Goal**: Differentiating features. AI assistance, rich widgets,
+> and extensibility. What makes Chi Terminal unique.
+
+### 7.1 AI Assistant Panel
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Natural language → command | Describe what you want, get the command | P2 |
+| Error explanation | Select an error, get plain-English explanation | P2 |
+| Context-aware chat | AI can read terminal output (with explicit consent) | P2 |
+| Insert suggestion | One-click to paste AI-suggested command into terminal | P2 |
+
+**AI backend support:**
+
+| Backend | Type | Priority |
+|---------|------|----------|
+| Ollama | Local, self-hosted | P2 (first-class) |
+| llama.cpp | Local, embedded | P2 |
+| OpenAI API | Cloud, user API key | P2 |
+| Anthropic API | Cloud, user API key | P2 |
+| Custom endpoint | User-configured URL | P3 |
+
+**Privacy requirements:**
+- Terminal content is NEVER sent to any cloud service without explicit
+  user action per interaction
+- Each "send to AI" shows exactly what data will be transmitted
+- Local models work fully offline — first-class, not second-class
+- API keys stored in system keyring (not plaintext config)
+- No Chi Terminal account required, ever
+
+### 7.2 SSH Bookmark Manager
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Save connections | Host, port, user, identity file, jump host | P2 |
+| Quick connect | From command palette or dedicated panel | P2 |
+| Auto profile switching | Tab color and title change on SSH connection | P2 |
+| SSH config integration | Read from `~/.ssh/config` | P2 |
+
+### 7.3 Inline Widgets
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Markdown preview | Render .md files inline | P2 |
+| System monitor | CPU/memory mini-graphs in a side widget | P2 |
+| Git status widget | Branch, staged/unstaged changes, ahead/behind | P2 |
+| File preview | Syntax-highlighted file content on action | P2 |
+
+### 7.4 Triggers & Automation
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Regex triggers | Match patterns in terminal output | P2 |
+| Actions | Notify, highlight, run command, play sound | P2 |
+| Profile auto-switching | Change appearance by hostname, directory, or command | P2 |
+
+### 7.5 Extension API
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| Plugin loading | Load QML-based extensions | P3 |
+| Event hooks | onCommandStart, onCommandEnd, onDirectoryChanged, etc. | P3 |
+| Custom widgets | Third-party status bar items, side panels | P3 |
+| Custom context menu items | Plugins can extend right-click menus | P3 |
+| Custom command palette actions | Plugins can register commands | P3 |
+
+---
+
+## 8. Performance Budget
+
+These are hard requirements, not aspirations. Every commit must
+maintain these numbers.
+
+| Metric | Target | How to Measure |
+|--------|--------|----------------|
+| Cold startup to first frame | < 100ms | `time chiterm --benchmark-startup` |
+| Warm startup (FS cached) | < 50ms | Second consecutive launch |
+| Input latency (keypress → pixel) | < 8ms | TYPOMETER or high-speed camera |
+| `cat` large file throughput | > 500 MB/s | `cat` 1GB file, time to completion |
+| Full screen redraw (80×24) | < 1ms | Internal frame timing |
+| Full screen redraw (200×50) | < 3ms | Internal frame timing |
+| Frame rate during fast scroll | Sustained 60 FPS | `QSG_RENDER_TIMING=1` |
+| Memory — idle, 1 tab | < 30 MB RSS | `ps aux` / `smem` |
+| Memory — per additional tab | < 15 MB RSS | Delta measurement |
+| Memory — 10K scrollback × 200 cols | < 50 MB | `smem` per session |
+| Config hot reload | < 50ms | Internal timing |
+
+---
+
+## 9. Acceptance Criteria
+
+### 9.1 Tier 1 Acceptance
+
+The MVP is complete when ALL of the following pass:
+
+**Emulation correctness:**
+- [ ] Launches default `$SHELL` and interacts normally
+- [ ] Passes vttest basic compatibility suite
+- [ ] True color gradient test renders correctly
+- [ ] All common TUI apps render correctly: vim, neovim, tmux, htop,
+      lazygit, btop, midnight commander
+- [ ] tmux inside Chi Terminal works fully (nested multiplexer)
+- [ ] Unicode test suite: combining characters, ZWJ emoji, CJK wide chars
+- [ ] Kitty Keyboard Protocol test passes (Neovim `set keyprotocol`)
+
+**Feature completeness:**
+- [ ] Tabs: create, close, switch (cycle + direct), reorder via drag
+- [ ] Splits: create H/V, navigate all 4 directions, close, zen mode
+- [ ] Search: open, type, highlight matches, navigate, regex mode, close
+- [ ] Copy/paste: selection, Ctrl+Shift+C/V, smart Ctrl+C, bracketed paste
+- [ ] Context menu: correct items for empty area, selected text, URL, file path
+- [ ] Ctrl+click on URL opens browser
+- [ ] Ctrl+click on file path opens editor/file manager
+- [ ] Font zoom: Ctrl+=, Ctrl+-, Ctrl+0
+- [ ] Scrollback: mouse wheel, Shift+PageUp/Down
+- [ ] Config file loads, validates, and applies
+- [ ] Config hot reload works for colors, fonts, opacity, keybindings
+- [ ] Shell integration: CWD shown in status bar, command timing, exit codes
+- [ ] Tab title updates from CWD / running process
+- [ ] All default keybindings work
+- [ ] Custom keybindings apply from config
+
+**Performance:**
+- [ ] Startup < 100ms
+- [ ] `cat` throughput > 500 MB/s
+- [ ] No visible tearing in Neovim during fast scrolling
+- [ ] 60 FPS maintained during `yes` output flood
+
+**Edge cases:**
+- [ ] Graceful handling of missing config file (use defaults)
+- [ ] Graceful handling of invalid config (error message + defaults)
+- [ ] Close confirmation when process is running
+- [ ] Terminal resizes correctly with reflow
+- [ ] Works under both Wayland and X11
+
+### 9.2 Tier 2 Acceptance
+
+- [ ] Blocks: commands visually grouped, collapsible, with actions
+- [ ] Blocks degrade gracefully without shell integration
+- [ ] Command palette: opens, fuzzy searches, executes actions
+- [ ] Session saves on exit, restores on launch (tabs, panes, CWDs)
+- [ ] Workspaces: create, name, switch, delete
+- [ ] Quake mode: global hotkey toggles dropdown terminal
+- [ ] Desktop notification fires for long-running commands
+- [ ] Kitty graphics protocol displays images inline
+- [ ] Tab colors change automatically on SSH / root
+- [ ] Cross-tab search finds and navigates to results
+- [ ] Smart selection detects URLs, paths, quoted strings
+- [ ] Settings GUI allows editing all Tier 1 settings with live preview
+
+### 9.3 Tier 3 Acceptance
+
+- [ ] AI panel: send query, receive response, insert command
+- [ ] AI works fully offline with Ollama
+- [ ] AI never sends data to cloud without explicit per-interaction consent
+- [ ] SSH bookmarks: save, quick-connect, auto-profile
+- [ ] At least one inline widget functional (markdown or sysinfo)
+- [ ] Triggers: define regex → action, fires on match
+- [ ] Extension: load a sample QML plugin that adds a status bar item
+
+---
+
+## 10. Non-Goals & Anti-Patterns
+
+Things we explicitly **will not** build:
+
+| Anti-Pattern | Reason |
+|-------------|--------|
+| Heavy animations on terminal content | Terminals must feel instant; Chi motion tokens are for UI chrome only |
+| Mandatory cloud account | Privacy-first; never gate features behind sign-up |
+| Built-in text editor | We are not competing with vim/nano/helix; preview only |
+| Custom shell or prompt | Always use the user's shell; never override their environment |
+| Electron or web-tech rendering | Performance and memory are non-negotiable |
+| Arbitrary freeform splitter dragging | Smart layouts with snap points instead |
+| Feature overload at launch | Progressive disclosure; Tier 2/3 features are discoverable, not forced |
+| Trying to replace tmux | Respect tmux users; provide convenience splits, not session resilience |
+
+---
+
+## 11. Reference Terminals Studied
+
+| Terminal | Key Lesson |
+|----------|-----------|
+| **Ghostty** | Zero-config philosophy; embeddable VT library; native-first |
+| **Warp** | Block-based output innovation; AI integration patterns; shows cloud account risk |
+| **Wave** | Widget system; privacy-respecting AI with user API keys |
+| **Kitty** | Graphics protocol (de facto standard); performance benchmark |
+| **WezTerm** | Lua extensibility model; configuration-as-code |
+| **Alacritty** | Speed benchmark; simplicity philosophy; what minimalism looks like |
+| **iTerm2** | Smart selection depth; shell integration features; trigger system |
+| **Windows Terminal** | Settings GUI patterns; profile system; tab UX |
+
+---
+
+*This specification is the product contract. It defines WHAT we build
+and HOW we know it's done. It does not define HOW we build it — that
+belongs in `architecture.md`.*
+
+*Last updated: March 2026*
+Document 2: architecture.md
+Markdown
+
+# Chi Terminal — System Architecture
+# Version 0.1.0 | March 2026
+
+> How the system is structured. Module boundaries, rendering strategy,
+> data flow, and technology choices. References `spec.md` for the
+> "what" — this document covers the "how."
+
+---
+
+## Table of Contents
+
+1. [Technology Stack](#1-technology-stack)
+2. [System Layers](#2-system-layers)
+3. [Module Map](#3-module-map)
+4. [Terminal Emulation Layer](#4-terminal-emulation-layer)
+5. [PTY Management](#5-pty-management)
+6. [Rendering Pipeline](#6-rendering-pipeline)
+7. [Session & Layout Model](#7-session--layout-model)
+8. [Configuration System](#8-configuration-system)
+9. [Shell Integration](#9-shell-integration)
+10. [Context Detection System](#10-context-detection-system)
+11. [UI Layer (QML + Chi)](#11-ui-layer-qml--chi)
+12. [AI Subsystem (Tier 3)](#12-ai-subsystem-tier-3)
+13. [Platform Integration](#13-platform-integration)
+14. [Build System](#14-build-system)
+15. [Project Directory Layout](#15-project-directory-layout)
+16. [Testing Architecture](#16-testing-architecture)
+17. [Dependency Summary](#17-dependency-summary)
+
+---
+
+## 1. Technology Stack
+
+### 1.1 Core Stack
+
+| Layer | Choice | Rationale |
+|-------|--------|-----------|
+| Language | C++17 (C++20 preferred) | Qt ecosystem; performance-critical rendering and VT processing |
+| UI Framework | Qt 6 (≥ 6.5) — Quick, Core, Gui | Chi library requirement; QML for declarative UI chrome |
+| UI Components | Chi 1.0 | Material 3 Expressive; theme-driven; zero-config beauty |
+| VT Emulation | libghostty-vt (primary) / libvterm (fallback) | See §4 for detailed rationale |
+| Config Format | TOML via toml++ | Human-readable, typed, version-control friendly |
+| Build | CMake ≥ 3.19 | Industry standard, FetchContent for dependency management |
+| Compiler | GCC 13+ / Clang 16+ | C++17 minimum, sanitizer support |
+
+### 1.2 Why These Libraries
+
+**VT Emulation — libghostty-vt (primary):**
+- Extracted from Ghostty's terminal emulator core
+- SIMD-optimized VT sequence parsing
+- Leading Unicode support (full grapheme clustering)
+- Zero external dependencies
+- Fuzz-tested, proven by millions of daily users
+- C API under active development; dozens of projects already integrating
+- Handles: Kitty Keyboard Protocol, Kitty Graphics Protocol parsing,
+  synchronized rendering, text reflow, scrollback management
+
+**VT Emulation — libvterm (fallback):**
+- Abstract C99 library implementing VT220/xterm
+- No graphics toolkit dependency — pure callback-based
+- Avoids malloc() during normal operation
+- Used by Neovim's built-in terminal — well-proven
+- Our safety net if libghostty's C API timeline slips
+- Both libraries use callback architectures → our bridge adapts cleanly
+
+**Why NOT these alternatives:**
+
+| Library | Rejection Reason |
+|---------|-----------------|
+| QTermWidget | GPL-licensed, Qt Widgets-based (not QML), heavy Konsole heritage |
+| VTE (GNOME) | GTK-specific, cannot embed in Qt |
+| xterm.js | JavaScript/browser — wrong platform entirely |
+| yat / literm | Unmaintained, limited VT emulation |
+| Writing our own | VT emulation is deceptively complex; 12+ months of edge cases |
+
+**Config — toml++:**
+- Header-only C++17, MIT license
+- Full TOML v1.0 compliance
+- Supports serialization (read and write)
+- Exception-free mode available
+- Tiny footprint, no dependencies
+
+### 1.3 System Dependencies (Linux)
+
+**Build time:**
+- Qt 6.5+ (Core, Gui, Quick, QuickControls2, DBus, Network, ShaderTools)
+- CMake ≥ 3.19, Ninja (recommended)
+- GCC 13+ or Clang 16+
+- Zig 0.15.x (only if building libghostty-vt from source)
+
+**Runtime:**
+- Mesa / libGL (for Qt Quick Scene Graph GPU backend)
+- fontconfig, FreeType, HarfBuzz (via Qt)
+- D-Bus (for desktop integration)
+
+---
+
+## 2. System Layers
+┌──────────────────────────────────────────────────────────────┐ │ QML UI Layer │ │ Chi components: TabBar, ContextMenu, SearchOverlay, │ │ StatusBar, CommandPalette, SideSheet, Dialog, Settings │ ├──────────────────────────────────────────────────────────────┤ │ TerminalWidget Layer │ │ Custom QQuickItem — renders terminal grid via Scene Graph │ │ Glyph atlas, selection overlay, cursor, link underlines │ ├──────────────────────────────────────────────────────────────┤ │ Session Management Layer │ │ SessionManager, TerminalSession, SplitTree │ │ Coordinates tabs, panes, focus, lifecycle │ ├──────────────────────────────────────────────────────────────┤ │ Terminal Engine Layer │ │ VtBridge (abstraction) → libghostty-vt or libvterm │ │ ScreenBuffer (cell grid + scrollback ring buffer) │ │ Selection model, SearchEngine │ ├──────────────────────────────────────────────────────────────┤ │ PTY Layer │ │ PtyManager: forkpty(), QSocketNotifier, read/write, resize │ ├──────────────────────────────────────────────────────────────┤ │ Configuration Layer │ │ ConfigManager (TOML), KeybindingManager, ColorScheme │ │ ShellIntegration (OSC parsing), ContextDetector │ ├──────────────────────────────────────────────────────────────┤ │ Platform Layer │ │ DesktopIntegration (D-Bus notifications, global shortcuts) │ │ WaylandHelpers, X11Helpers │ └──────────────────────────────────────────────────────────────┘
+
+text
+
+
+**Data flow for a keypress:**
+User presses key → QML KeyEvent → KeybindingManager checks for terminal action → If bound: execute action (new tab, split, etc.) → If not bound: encode for terminal → VtBridge.encodeKey() → byte sequence → PtyManager.write() → master FD → Shell process reads from slave FD
+
+text
+
+
+**Data flow for terminal output:**
+Shell writes to slave FD → Kernel PTY layer → PtyManager reads from master FD (QSocketNotifier) → VtBridge.feed(data) → parse VT sequences → ScreenBuffer updated, dirty flags set → TerminalWidget.update() triggered → Scene Graph node tree rebuilt for dirty cells → GPU renders frame
+
+text
+
+
+---
+
+## 3. Module Map
+┌─────────────────────────────────────────────────────┐ │ chi-terminal │ │ │ │ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │ │ │ terminal/ │ │rendering/│ │ session/ │ │ │ │ │ │ │ │ │ │ │ │ PtyMgr │←→│TermWidget│←→│ SessionManager │ │ │ │ VtBridge │ │ GlyphAtl │ │ TerminalSession │ │ │ │ ScreenBuf │ │ TermNode │ │ SplitNode │ │ │ │ Selection │ │ CursorRen│ │ Persistence (T2) │ │ │ │ Search │ │ │ │ │ │ │ └──────────┘ └──────────┘ └──────────────────┘ │ │ ↑ ↑ ↑ │ │ │ │ │ │ │ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │ │ │ config/ │ │ context/ │ │ platform/ │ │ │ │ │ │ │ │ │ │ │ │ ConfigMgr │ │ Detector │ │ DesktopInteg │ │ │ │ Keybinds │ │ MenuBuild│ │ GlobalShortcut │ │ │ │ ColorSchm │ │ │ │ WaylandHelpers │ │ │ │ ShellIntg │ │ │ │ │ │ │ └──────────┘ └──────────┘ └──────────────────┘ │ │ │ │ ┌──────────────────────────────────────────────┐ │ │ │ qml/ (UI Layer) │ │ │ │ Main.qml, TabBar, Pane, SplitView, Search, │ │ │ │ ContextMenu, StatusBar, CommandPalette (T2), │ │ │ │ Settings (T2), AiPanel (T3) │ │ │ └──────────────────────────────────────────────┘ │ └─────────────────────────────────────────────────────┘
+
+text
+
+
+**Module dependency rules:**
+- `terminal/` depends on nothing in the project (standalone)
+- `rendering/` depends on `terminal/` (reads ScreenBuffer)
+- `session/` depends on `terminal/` and `rendering/`
+- `config/` depends on nothing (standalone, consumed by others)
+- `context/` depends on `terminal/` (reads screen content)
+- `platform/` depends on nothing in the project (standalone)
+- `qml/` depends on everything (top of the stack)
+
+No circular dependencies. Each module is independently testable.
+
+---
+
+## 4. Terminal Emulation Layer
+
+### 4.1 VtBridge — Backend Abstraction
+
+The VtBridge provides a uniform interface over whichever VT library
+is active. This is the core abstraction that lets us swap backends.
+
+**Responsibilities:**
+- Accept raw bytes from PTY → parse VT sequences → update screen state
+- Provide cell-by-cell access to the terminal grid
+- Track cursor position, style, visibility
+- Manage scrollback ring buffer
+- Encode keyboard input and mouse events into VT sequences
+- Emit signals for: screen damage, bell, title changes, hyperlinks,
+  clipboard requests (OSC 52), color queries
+
+**Backend selection:**
+- Compile-time flag: `CHITERM_USE_GHOSTTY` or `CHITERM_USE_LIBVTERM`
+- Both backends implement the same VtBridge interface
+- Backend can be switched without touching any other module
+
+### 4.2 ScreenBuffer
+
+**Responsibilities:**
+- Store the active terminal grid (rows × cols of Cells)
+- Store the scrollback buffer as a ring buffer of rows
+- Track dirty regions (which cells changed since last render)
+- Handle text reflow when terminal resizes
+
+**Design decisions:**
+- Ring buffer for scrollback (constant-time append, bounded memory)
+- Dirty tracking via per-row bitflags (not per-cell — cache-friendly)
+- Double-buffered: VT engine writes to back buffer, renderer reads
+  from front buffer, swap on "
+
+
+
+  
+  
+  
+   
+   
+ 
+ 
+ 
+  
+  
+  
+  
+
+" (not "per byte")
+
+### 4.3 Selection Model
+
+**Responsibilities:**
+- Track selection start/end in grid coordinates
+- Support: linear (normal), word, line, rectangular modes
+- Convert selection to plain text for clipboard
+- Handle selection across scrollback boundary
+- Invalidate selection when underlying content scrolls
+
+### 4.4 Search Engine
+
+**Responsibilities:**
+- Search through ScreenBuffer (visible + scrollback)
+- Support plain text and PCRE2 regex (via QRegularExpression)
+- Return match positions as grid coordinates
+- Track "current match" index for navigation
+- Incremental search (update results as user types)
+
+---
+
+## 5. PTY Management
+
+### 5.1 PtyManager
+
+**Responsibilities:**
+- Create pseudoterminal pair via `forkpty()`
+- Spawn child process (user's shell) on the slave side
+- Async read from master FD via `QSocketNotifier`
+- Write to master FD (user input, encoded by VtBridge)
+- Handle terminal resize via `TIOCSWINSZ` ioctl
+- Detect child exit via `SIGCHLD` / `waitpid()`
+- Report foreground process name via `tcgetpgrp()` + `/proc`
+
+**Design decisions:**
+- One PtyManager per TerminalSession (1:1)
+- Read in chunks (buffer to be sized during implementation)
+- Write coalescing: buffer small writes, flush per event loop tick
+- Environment: inherit parent env + set `TERM`, `COLORTERM`,
+  `CHITERM_VERSION`, shell integration vars
+
+### 5.2 Signal Handling
+
+- `SIGCHLD`: detected via Qt signal handler or `signalfd()`
+- `SIGWINCH`: not needed (we control resize via ioctl, not signals)
+- `SIGTERM`/`SIGINT`: graceful shutdown, save session state (Tier 2)
+
+---
+
+## 6. Rendering Pipeline
+
+### 6.1 Strategy: Custom QQuickItem + Scene Graph
+
+The terminal grid is rendered as a **custom QQuickItem** that builds
+a Qt Scene Graph node tree directly. This is critical for performance.
+
+**Why NOT QML Text elements:**
+- A 200×50 terminal = 10,000 cells = 10,000 QObjects if using Text {}
+- QObject overhead: ~160 bytes each + property system + signal/slot
+- Scene Graph nodes: ~64 bytes each, no QObject overhead
+- Direct Scene Graph is 10-50x more efficient for a character grid
+
+**Why NOT raw OpenGL/Vulkan:**
+- Qt Scene Graph already uses RHI (Rendering Hardware Interface)
+- RHI abstracts OpenGL, Vulkan, Metal, Direct3D
+- We get GPU acceleration without platform-specific graphics code
+- Integrates correctly with QML compositing (overlays, popups, etc.)
+
+### 6.2 Glyph Atlas
+
+A single large texture containing pre-rendered glyphs.
+
+**Strategy:**
+- On font change: pre-render ASCII printable range (32-126) into atlas
+- On demand: render and cache additional glyphs as encountered
+- Hash map: codepoint + style flags → atlas coordinates
+- Atlas growth: start at a reasonable size, grow if needed
+- Emoji: rendered via separate color glyph path (system emoji font)
+
+**Each cell is rendered as:**
+1. Background quad (solid color from cell.bg)
+2. Foreground textured quad (glyph from atlas, tinted by cell.fg)
+3. Optional: underline/strikethrough geometry
+4. Optional: cursor overlay
+
+### 6.3 Dirty Rendering
+
+Only re-render what changed:
+- VT engine marks dirty rows via ScreenBuffer flags
+- On `updatePaintNode()`, iterate only dirty rows
+- Update corresponding QSGNode children
+- Clear dirty flags after render
+- Result: typical interactive use re-renders 1-3 rows per frame
+
+### 6.4 Cursor Rendering
+
+- Block: filled rectangle (or outlined when unfocused)
+- Beam: thin vertical line (1-2px)
+- Underline: horizontal line at cell bottom
+- Blink: QML Timer-driven opacity animation (Chi motion tokens)
+
+### 6.5 Selection Rendering
+
+- Semi-transparent overlay rectangles on selected cells
+- Color from ChiTheme: primaryContainer at reduced opacity
+- Updated per-frame if selection is being dragged
+
+---
+
+## 7. Session & Layout Model
+
+### 7.1 Hierarchy
+Application └─ Window (may have multiple in future) └─ TabModel (ordered list of tabs) └─ Tab └─ SplitTree (root SplitNode) ├─ SplitNode (type: leaf) → TerminalSession └─ SplitNode (type: hsplit or vsplit) ├─ first → SplitNode └─ second → SplitNode
+
+text
+
+
+### 7.2 SplitTree
+
+A binary tree where:
+- **Leaf nodes** contain a TerminalSession
+- **Branch nodes** define a horizontal or vertical split with a ratio
+
+**Operations:**
+- `split(node, direction)` → replace leaf with branch + 2 leaves
+- `close(node)` → remove leaf, replace parent branch with sibling
+- `maximize(node)` → temporarily render only this leaf (zen mode)
+- `navigate(direction)` → find adjacent leaf in the tree
+- `resize(node, delta)` → adjust parent branch ratio
+
+**Layout pass:**
+- Given the root node's bounding rectangle
+- Recursively subdivide: branch nodes divide by ratio and direction
+- Leaf nodes receive their final QRectF → TerminalWidget sizes to fit
+
+### 7.3 TerminalSession
+
+One TerminalSession represents one running terminal instance.
+It owns:
+- One PtyManager (subprocess)
+- One VtBridge (VT emulation)
+- One ScreenBuffer (cell grid + scrollback)
+- One SelectionModel
+- Shell integration state (CWD, last exit code, timing)
+
+### 7.4 SessionManager
+
+Singleton that manages the application-level session:
+- Tab list (ordered)
+- Active tab / active pane tracking
+- Tab create / close / reorder
+- Focus routing
+- Session persistence (Tier 2): serialize → JSON, restore on launch
+
+---
+
+## 8. Configuration System
+
+### 8.1 ConfigManager
+
+**Responsibilities:**
+- Load TOML from XDG-compliant path
+- Parse and validate against schema (known keys + types)
+- Provide typed getters with defaults for missing keys
+- Watch file for changes via QFileSystemWatcher
+- On change: re-parse, compute delta, emit change signals
+
+**Hot-reloadable (no restart):**
+Colors, fonts, opacity, cursor style, keybindings, padding,
+tab bar visibility, status bar visibility, bell settings
+
+**Requires restart:**
+Shell, TERM value, GPU rendering mode
+
+### 8.2 KeybindingManager
+
+**Responsibilities:**
+- Parse keybinding config into internal representation
+- Match incoming QKeyEvent against registered bindings
+- Support multi-key sequences (future)
+- Detect conflicts (two actions bound to same key)
+- Provide list of all actions + current bindings (for settings GUI)
+
+### 8.3 ColorScheme
+
+**Responsibilities:**
+- Load color scheme files (TOML native format)
+- Import foreign formats: iTerm2 (.itermcolors XML), Xresources
+- Map ANSI 16 colors + extended colors
+- Integration with ChiTheme: terminal chrome uses theme tokens,
+  terminal content uses scheme colors
+
+---
+
+## 9. Shell Integration
+
+### 9.1 OSC Sequence Handling
+
+Shell integration scripts (shipped for bash, zsh, fish) emit OSC
+sequences that the VT engine forwards to ShellIntegration handler:
+
+| Sequence | Data | Use |
+|----------|------|-----|
+| OSC 7 | `file://hostname/path` | CWD tracking |
+| OSC 133;A | — | Prompt start |
+| OSC 133;B | — | Command start |
+| OSC 133;C | — | Output start |
+| OSC 133;D;N | exit code N | Command finished |
+| OSC 0 / 1 / 2 | title string | Window/icon title |
+
+### 9.2 Derived State
+
+From these sequences, ShellIntegration computes:
+- Current working directory
+- Whether shell is at a prompt vs. running a command
+- Command start/end boundaries (for block-based output in Tier 2)
+- Command duration (time between OSC 133;B and 133;D)
+- Last exit code
+
+---
+
+## 10. Context Detection System
+
+### 10.1 ContextDetector
+
+Analyzes text at a given position in the terminal grid to determine
+what semantic element is under the cursor.
+
+**Detection strategies (priority order):**
+1. OSC 8 hyperlinks (explicit, highest confidence)
+2. URL regex (http://, https://, ftp://, etc.)
+3. File path patterns (/, ~/, ./, ../  + existence check)
+4. IP address patterns (IPv4, IPv6)
+5. Email patterns
+6. If text is selected → "selected text" context
+7. Otherwise → "empty" context
+
+### 10.2 ContextMenuBuilder
+
+Takes a Context enum + detected text → produces a list of menu items
+appropriate for that context. Consumed by the QML ContextMenu.
+
+---
+
+## 11. UI Layer (QML + Chi)
+
+### 11.1 Component Mapping
+
+| UI Element | Chi Component(s) | Notes |
+|-----------|-------------------|-------|
+| Tab bar | Custom (thin bar) + IconButton | Compact, ≤36px |
+| Tab | Custom delegate | Drag-reorderable |
+| Context menu | ContextMenu + MenuItem + MenuDivider | Dynamic per context |
+| Search overlay | Card + TextField + IconButton + ToggleButton | Floating, top-right |
+| Status bar | Custom bar + IconLabel + Icon | Compact, ≤24px |
+| Command palette (T2) | Dialog + SearchBar + ListView + ListItem | Modal, top-center |
+| Settings panel (T2) | SideSheet + Tabs + form components | Right-side panel |
+| AI panel (T3) | SideSheet + Card + TextField + Button | Right-side panel |
+| Confirmations | ConfirmDialog | Tab close, etc. |
+| Notifications | Snackbar | Command completed, etc. |
+
+### 11.2 Layout Strategy
+┌─ Window ────────────────────────────────────┐ │ ┌─ TabBar ─────────────────────────────────┐│ │ │ [≡] [Tab 1] [Tab 2] [Tab 3] [+] ││ │ └──────────────────────────────────────────┘│ │ ┌─ Content Area ───────────────────────────┐│ │ │ ││ │ │ SplitView (recursive) ││ │ │ └─ TerminalPane(s) ││ │ │ └─ TerminalWidget (QQuickItem) ││ │ │ ││ │ └──────────────────────────────────────────┘│ │ ┌─ StatusBar ──────────────────────────────┐│ │ │ 📁 ~/projects/chi-terminal ⎇ main ⏱ 2.3s ✓││ │ └──────────────────────────────────────────┘│ └─────────────────────────────────────────────┘
+
+text
+
+
+**No TopAppBar**: Terminal maximizes screen real estate. The tab bar
+serves as the top chrome. Menu access via hamburger button in tab bar.
+
+### 11.3 Overlay Strategy
+
+Overlays (search, command palette) float above terminal content using
+QML z-ordering. They do NOT take space from the terminal grid. They
+are dismissed on Escape or click-outside.
+
+---
+
+## 12. AI Subsystem (Tier 3)
+
+### 12.1 Backend Architecture
+
+AI backends are plugins behind a common interface:
+AiPanel (QML) ↕ signals/slots AiManager (C++) ↕ selects active backend AiBackend (abstract) ├─ OllamaBackend → HTTP to localhost:11434 ├─ OpenAiBackend → HTTPS to api.openai.com └─ AnthropicBackend → HTTPS to api.anthropic.com
+
+text
+
+
+**All backends support:**
+- Streaming responses (token-by-token display)
+- Cancellation mid-response
+- System prompt with terminal context (opt-in)
+
+**Networking:** Qt Network (`QNetworkAccessManager`) for HTTP/HTTPS.
+No additional HTTP library needed.
+
+**Secret storage:** API keys stored via system keyring (libsecret
+on Linux, accessed via D-Bus). Never stored in plaintext config.
+
+### 12.2 Context Passing
+
+When the user asks AI for help, they can optionally include terminal
+context. The UI must show exactly what text will be sent before
+transmission. Context options:
+- Last command + output (current block)
+- Selected text only
+- Last N lines
+- None (just the user's question)
+
+---
+
+## 13. Platform Integration
+
+### 13.1 D-Bus Services Used
+
+| Service | Use | Tier |
+|---------|-----|------|
+| `org.freedesktop.Notifications` | Desktop notifications | T2 |
+| `org.freedesktop.portal.GlobalShortcuts` | Quake-mode hotkey | T2 |
+| `org.freedesktop.secrets` | API key storage | T3 |
+
+### 13.2 Wayland Considerations
+
+- Use Qt's Wayland backend (automatic with `QT_QPA_PLATFORM=wayland`)
+- Layer shell for quake-mode (via `wlr-layer-shell` or portal)
+- No X11-specific code in core; platform/ module isolates differences
+
+### 13.3 XDG Compliance
+
+| Spec | Path | Use |
+|------|------|-----|
+| `$XDG_CONFIG_HOME` | `~/.config/chiterm/` | Config files |
+| `$XDG_DATA_HOME` | `~/.local/share/chiterm/` | Color schemes, shell integration scripts |
+| `$XDG_STATE_HOME` | `~/.local/state/chiterm/` | Session persistence, history |
+| `$XDG_RUNTIME_DIR` | `/run/user/$UID/chiterm/` | Socket for single-instance |
+
+---
+
+## 14. Build System
+
+### 14.1 CMake Structure
+CMakeLists.txt (root) ├── src/CMakeLists.txt │ ├── terminal/CMakeLists.txt → libchiterm-core (static) │ ├── rendering/CMakeLists.txt → libchiterm-render (static) │ ├── session/CMakeLists.txt → libchiterm-session (static) │ ├── config/CMakeLists.txt → libchiterm-config (static) │ ├── context/CMakeLists.txt → libchiterm-context (static) │ ├── platform/CMakeLists.txt → libchiterm-platform (static) │ ├── ai/CMakeLists.txt → libchiterm-ai (static, optional) │ └── app/CMakeLists.txt → chiterm (executable) ├── qml/CMakeLists.txt → QML module ├── tests/CMakeLists.txt → test executables └── third_party/CMakeLists.txt → external deps
+
+text
+
+
+Each module builds as a static library with explicit public headers.
+The final executable links everything.
+
+### 14.2 Build Options
+
+| Option | Default | Effect |
+|--------|---------|--------|
+| `CHITERM_VT_BACKEND` | `auto` | `auto`, `ghostty`, `libvterm` |
+| `CHITERM_ENABLE_AI` | `OFF` | Build AI subsystem (Tier 3) |
+| `CHITERM_ENABLE_TESTS` | `ON` | Build test suite |
+| `CHITERM_SANITIZERS` | `OFF` | Enable ASan + UBSan |
+
+### 14.3 Build Profiles
+
+| Profile | Flags | Use |
+|---------|-------|-----|
+| Debug | `-O0 -g -fsanitize=address,undefined` | Development |
+| Release | `-O2 -DNDEBUG -flto` | Distribution |
+| RelWithDebInfo | `-O2 -g` | Profiling release builds |
+
+---
+
+## 15. Project Directory Layout
+chi-terminal/ ├── CMakeLists.txt ├── README.md ├── LICENSE ├── chiterm.toml.default │ ├── src/ │ ├── main.cpp │ ├── app/ # Application lifecycle │ ├── terminal/ # VT engine, PTY, screen buffer │ ├── rendering/ # QQuickItem, glyph atlas, scene graph │ ├── session/ # Tabs, panes, split tree, persistence │ ├── config/ # TOML, keybindings, color schemes │ ├── context/ # Smart detection, menu building │ ├── ai/ # AI backends (Tier 3) │ └── platform/ # D-Bus, Wayland, global shortcuts │ ├── qml/ │ ├── Main.qml │ ├── TerminalTabBar.qml │ ├── TerminalTab.qml │ ├── TerminalPane.qml │ ├── SplitView.qml │ ├── SplitContainer.qml │ ├── SearchOverlay.qml │ ├── TerminalContextMenu.qml │ ├── TerminalStatusBar.qml │ ├── CommandPalette.qml # Tier 2 │ ├── SettingsPanel.qml # Tier 2 │ ├── AiPanel.qml # Tier 3 │ ├── QuakeWindow.qml # Tier 2 │ └── components/ │ └── TerminalScrollbar.qml │ ├── shell-integration/ │ ├── bash-integration.sh │ ├── zsh-integration.zsh │ └── fish-integration.fish │ ├── data/ │ ├── color-schemes/ # Built-in .toml schemes │ └── chiterm.desktop # XDG desktop entry │ ├── tests/ │ ├── unit/ # Per-module unit tests │ ├── integration/ # VT compat, TUI app tests │ └── performance/ # Throughput, latency benchmarks │ └── third_party/ ├── tomlplusplus/ # git submodule └── libvterm/ # git submodule (if fallback)
+
+text
+
+
+---
+
+## 16. Testing Architecture
+
+### 16.1 Unit Tests (Qt Test)
+
+| Module | Test Focus |
+|--------|------------|
+| terminal/PtyManager | Spawn, read/write, resize, exit detection |
+| terminal/VtBridge | Feed sequences → verify cell state |
+| terminal/ScreenBuffer | Write, scroll, reflow, dirty tracking |
+| terminal/Selection | Word/line/rect selection, coordinate math |
+| terminal/SearchEngine | Plain text, regex, case, match navigation |
+| config/ConfigManager | Valid/invalid TOML, defaults, hot reload |
+| config/KeybindingManager | Parse, match, conflict detection |
+| config/ColorScheme | Load native, import iTerm2/Xresources |
+| context/ContextDetector | URL, path, IP, email regex accuracy |
+
+### 16.2 Integration Tests
+
+| Test | What It Validates |
+|------|-------------------|
+| vttest suite | VT220/xterm escape sequence compliance |
+| True color test | 24-bit color rendering accuracy |
+| Unicode test suite | Grapheme clusters, wide chars, combining |
+| tmux compatibility | Nested multiplexer works fully |
+| Neovim compatibility | Kitty Keyboard Protocol, cursor shapes |
+| lazygit / btop / htop | TUI rendering correctness |
+
+### 16.3 Performance Tests
+
+| Test | What It Measures |
+|------|-----------------|
+| Throughput | Bytes/sec: `cat` large file |
+| Latency | Keypress → pixel change (ms) |
+| Scrollback nav | FPS while scrolling 100K lines |
+| Startup | Time to first rendered frame |
+| Reflow | Time to resize during heavy output |
+
+### 16.4 CI Pipeline
+
+- **Build matrix**: GCC 13 + Clang 16, Qt 6.5 + Qt 6.7
+- **Unit tests**: All, with ASan + UBSan
+- **Integration**: vttest, TUI app smoke tests
+- **Performance**: Track across commits, alert on regression
+- **Lint**: clang-tidy, QML linter
+
+---
+
+## 17. Dependency Summary
+
+### 17.1 Tier 1
+
+| Dependency | Type | License | Purpose |
+|-----------|------|---------|---------|
+| Qt 6 Core/Gui/Quick/QC2/ShaderTools | System | LGPLv3 | UI framework |
+| Chi 1.0 | Internal | — | UI components |
+| libghostty-vt | Compiled | MIT | VT emulation (primary) |
+| libvterm | Compiled/System | MIT | VT emulation (fallback) |
+| toml++ | Header-only | MIT | Config parsing |
+
+### 17.2 Tier 2 (Additions)
+
+| Dependency | Type | License | Purpose |
+|-----------|------|---------|---------|
+| Qt 6 DBus | System | LGPLv3 | Notifications, global shortcuts |
+
+### 17.3 Tier 3 (Additions)
+
+| Dependency | Type | License | Purpose |
+|-----------|------|---------|---------|
+| Qt 6 Network | System | LGPLv3 | AI API HTTP requests |
+| libsecret (via D-Bus) | System | LGPL | Secure API key storage |
+| md4c or cmark-gfm | Compiled | MIT / BSD | Markdown rendering (widgets) |
+| KSyntaxHighlighting | System | MIT | Syntax highlighting (file preview) |
+
+---
+
+*This document defines HOW the system is structured. For WHAT we build,
+see `spec.md`. For API contracts, see `interfaces.md`. For optimization
+details, see `implementation_notes.md`.*
+
+*Last updated: March 2026*
+Document 3: interfaces.md
+Markdown
+
+# Chi Terminal — Interface Contracts
+# Version 0.1.0 | March 2026
+
+> Clean API boundaries between modules. These are contracts — the
+> signatures and responsibilities that each module exposes. No
+> implementation details, no memory layouts, no optimization tricks.
+
+---
+
+## Table of Contents
+
+1. [Terminal Engine Interfaces](#1-terminal-engine-interfaces)
+2. [Rendering Interfaces](#2-rendering-interfaces)
+3. [Session Interfaces](#3-session-interfaces)
+4. [Configuration Interfaces](#4-configuration-interfaces)
+5. [Context Detection Interfaces](#5-context-detection-interfaces)
+6. [Platform Interfaces](#6-platform-interfaces)
+7. [AI Interfaces (Tier 3)](#7-ai-interfaces-tier-3)
+8. [QML-Exposed Interfaces](#8-qml-exposed-interfaces)
+
+---
+
+## 1. Terminal Engine Interfaces
+
+### 1.1 PtyManager
+
+Manages the pseudoterminal connection to a child shell process.
+
+**Provided by:** `terminal/` module
+**Consumed by:** `TerminalSession`
+PtyManager Properties: masterFd → int (read-only, file descriptor) childPid → int (read-only, PID of shell process) foregroundPid → int (read-only, PID of foreground process group) running → bool (read-only)
+
+Methods: spawn(shell, args, env, workingDir, rows, cols) → bool write(data: bytes) → void resize(rows, cols) → void close() → void
+
+Signals: dataReceived(data: bytes) processExited(exitCode: int)
+
+text
+
+
+### 1.2 VtBridge
+
+Abstract interface over the VT emulation backend. Two implementations
+exist: one for libghostty-vt, one for libvterm. Callers never know
+which is active.
+
+**Provided by:** `terminal/` module
+**Consumed by:** `TerminalSession`, `rendering/TerminalWidget`
+VtBridge Construction: create(backend: enum, rows: int, cols: int) → VtBridge
+
+Methods: feed(data: bytes, length: int) → void resize(rows: int, cols: int) → void cellAt(row: int, col: int) → Cell cursor() → CursorState isDirty() → bool dirtyRegion() → DirtyRegion (returns and clears) scrollbackLineCount() → int scrollbackLine(index: int) → Row
+
+text
+
+// Input encoding
+encodeKey(key, modifiers) → bytes
+encodeMouse(event: MouseEvent) → bytes
+Signals:
+
+(region: DirtyRegion) bellRung() titleChanged(title: string) cursorStyleChanged(style: CursorStyle) hyperlinkActivated(id: int, url: string) clipboardRequested(data: string) // OSC 52 colorQueryResponse(index: int, color: Color)
+
+text
+
+
+### 1.3 ScreenBuffer
+
+The terminal cell grid with scrollback.
+
+**Provided by:** `terminal/` module
+**Consumed by:** `VtBridge` (writes), `rendering/` (reads), `SearchEngine` (reads)
+ScreenBuffer Properties: rows → int cols → int scrollbackMax → int scrollbackLen → int (current lines in scrollback)
+
+Methods: cellAt(row: int, col: int) → Cell scrollbackCellAt(scrollRow: int, col: int) → Cell markDirty(row: int) → void markAllDirty() → void dirtyRows() → bitmask clearDirty() → void resize(rows: int, cols: int) → void // triggers reflow reset() → void
+
+Data Types: Cell: codepoint → char32 width → int (0, 1, or 2) attributes → CellAttributes (bold, italic, underline, etc.) fgColor → Color (default-able) bgColor → Color (default-able) underlineColor → Color hyperlinkId → int (0 = none)
+
+text
+
+CellAttributes:
+  bold, italic, underline, strikethrough, blink, inverse,
+  invisible, faint, overline
+  underlineStyle → enum (single, double, curly, dotted, dashed)
+
+CursorState:
+  row, col       → int
+  style          → enum (block, beam, underline)
+  visible        → bool
+  blinking       → bool
+
+DirtyRegion:
+  rows           → list of row indices
+  
+:
+
+:
+
+text
+
+     → bool
+text
+
+
+### 1.4 Selection
+
+Manages text selection within a terminal session.
+
+**Provided by:** `terminal/` module
+**Consumed by:** `TerminalSession`, `rendering/` (overlay), QML
+Selection Properties: active → bool mode → enum (linear, word, line, rectangular) startRow → int startCol → int endRow → int endCol → int
+
+Methods: begin(row, col, mode) → void extend(row, col) → void finish() → void clear() → void contains(row, col) → bool toPlainText(screenBuffer: ScreenBuffer) → string
+
+Signals: selectionChanged()
+
+text
+
+
+### 1.5 SearchEngine
+
+Searches through terminal content.
+
+**Provided by:** `terminal/` module
+**Consumed by:** `TerminalSession`, QML (SearchOverlay)
+SearchEngine Properties: query → string caseSensitive → bool useRegex → bool totalMatches → int (read-only) currentMatch → int (read-only, 1-based)
+
+Methods: search(query: string) → void findNext() → MatchPosition? findPrevious() → MatchPosition? clear() → void matchesInRange(startRow, endRow) → list of MatchPosition
+
+Signals: resultsChanged(total: int) currentMatchChanged(index: int, position: MatchPosition)
+
+Data Types: MatchPosition: row, startCol, endCol → int
+
+text
+
+
+---
+
+## 2. Rendering Interfaces
+
+### 2.1 TerminalWidget
+
+Custom QQuickItem that renders the terminal grid.
+
+**Provided by:** `rendering/` module
+**Consumed by:** QML (TerminalPane.qml)
+TerminalWidget (QQuickItem, QML_ELEMENT) Properties (QML-accessible): session → TerminalSession (required) rows → int (read-only, computed from height) cols → int (read-only, computed from width) cellWidth → real (read-only) cellHeight → real (read-only) font → QFont fontPointSize → real padding → int
+
+Methods (QML-callable): positionToCell(x, y) → {row, col} cellToPosition(row, col) → {x, y}
+
+Signals: sizeChanged(rows: int, cols: int) linkHovered(url: string, rect: QRectF) linkUnhovered()
+
+text
+
+
+### 2.2 GlyphAtlas
+
+Internal to rendering module. Not exposed outside.
+GlyphAtlas (internal) Methods: lookup(codepoint, attributes) → AtlasEntry? insert(codepoint, attributes, font) → AtlasEntry clear() → void texture() → QSGTexture
+
+Data Types: AtlasEntry: textureRect → QRectF (normalized UV coordinates) bearing → QPointF advance → real
+
+text
+
+
+---
+
+## 3. Session Interfaces
+
+### 3.1 TerminalSession
+
+Represents one running terminal instance. Owns a PTY, VT engine,
+screen buffer, and shell integration state.
+
+**Provided by:** `session/` module
+**Consumed by:** QML, SessionManager
+TerminalSession (QObject, QML_ELEMENT) Properties (QML-accessible): title → string (auto from shell integration or process) currentDirectory → string (from OSC 7) gitBranch → string (from CWD inspection) lastExitCode → int lastCommandDuration → real (seconds) isRunningCommand → bool foregroundProcess → string
+
+text
+
+// Internal accessors
+ptyManager         → PtyManager
+vtBridge           → VtBridge
+screenBuffer       → ScreenBuffer
+selection          → Selection
+searchEngine       → SearchEngine
+Methods: start(shell, workingDir) → void sendInput(data: bytes) → void sendKey(key, modifiers) → void sendMouse(event: MouseEvent) → void resize(rows, cols) → void copySelection() → string paste(text: string) → void clear() → void
+
+Signals: titleChanged(title: string) directoryChanged(path: string) commandStarted(command: string) commandFinished(exitCode: int, duration: real) sessionEnded(exitCode: int) bellRung()
+
+text
+
+
+### 3.2 SplitNode
+
+Represents a node in the binary split tree.
+
+**Provided by:** `session/` module
+**Consumed by:** QML (SplitView.qml)
+SplitNode (QObject, QML_ELEMENT) Properties (QML-accessible): type → enum (Leaf, HSplit, VSplit) ratio → real (0.0 - 1.0, for split nodes) session → TerminalSession? (for leaf nodes) first → SplitNode? (for split nodes) second → SplitNode? (for split nodes)
+
+Signals: structureChanged()
+
+text
+
+
+### 3.3 SessionManager
+
+Application-level session coordinator.
+
+**Provided by:** `session/` module
+**Consumed by:** QML (Main.qml)
+SessionManager (QObject, singleton, QML_ELEMENT) Properties (QML-accessible): tabs → list of Tab activeTabIndex → int activeSession → TerminalSession (the focused pane)
+
+Methods: createTab(workingDir?) → void closeTab(index: int) → void moveTab(fromIndex, toIndex) → void switchTab(index: int) → void nextTab() → void previousTab() → void
+
+text
+
+splitActive(direction: enum) → void
+closeActivePane() → void
+navigatePane(direction: enum) → void
+maximizeActivePane() → void
+restoreMaximizedPane() → void
+Signals: tabCreated(index: int) tabClosed(index: int) tabMoved(fromIndex: int, toIndex: int) activeTabChanged(index: int) activeSessionChanged(session: TerminalSession) confirmCloseRequested(tabIndex: int, processName: string)
+
+Data Types: Tab: title → string splitRoot → SplitNode pinned → bool
+
+text
+
+
+---
+
+## 4. Configuration Interfaces
+
+### 4.1 ConfigManager
+
+**Provided by:** `config/` module
+**Consumed by:** All modules
+ConfigManager (QObject, singleton) Methods: load(path?) → bool reload() → void
+
+text
+
+// Typed getters (with defaults)
+getString(section, key, default) → string
+getInt(section, key, default) → int
+getReal(section, key, default) → real
+getBool(section, key, default) → bool
+getColor(section, key, default) → Color
+
+// Validation
+errors() → list of ConfigError
+Signals: configChanged(changedSections: list of string) configError(error: ConfigError)
+
+Data Types: ConfigError: line → int key → string message → string
+
+text
+
+
+### 4.2 KeybindingManager
+
+**Provided by:** `config/` module
+**Consumed by:** QML (key event handler)
+KeybindingManager (QObject, singleton) Methods: processKeyEvent(event: QKeyEvent) → bool bindingsForAction(action: string) → list of KeySequence actionsForKey(sequence: KeySequence) → list of string allActions() → list of ActionInfo conflicts(action: string, sequence: KeySequence) → list of string
+
+Signals: actionTriggered(action: string)
+
+Data Types: ActionInfo: id → string label → string category → string defaultKey → KeySequence currentKey → KeySequence
+
+text
+
+
+### 4.3 ColorScheme
+
+**Provided by:** `config/` module
+**Consumed by:** `rendering/` module, QML (settings)
+ColorScheme Properties: name → string ansi → array of 16 Colors background → Color foreground → Color cursor → Color selection → Color
+
+Static Methods: loadFromToml(path) → ColorScheme? loadFromItermColors(path) → ColorScheme? loadFromXresources(path) → ColorScheme? builtinSchemes() → list of ColorScheme
+
+text
+
+
+---
+
+## 5. Context Detection Interfaces
+
+### 5.1 ContextDetector
+
+**Provided by:** `context/` module
+**Consumed by:** QML (context menu, click handling)
+ContextDetector Data Types: ContextType: enum Empty, SelectedText, Hyperlink, Url, FilePath, IpAddress, Email
+
+text
+
+DetectedContext:
+  type       → ContextType
+  text       → string (the detected element)
+  screenRect → QRect (cell coordinates of the element)
+Methods: detect(screenBuffer, row, col, hasSelection) → DetectedContext
+
+text
+
+
+### 5.2 ContextMenuBuilder
+
+**Provided by:** `context/` module
+**Consumed by:** QML (TerminalContextMenu.qml)
+ContextMenuBuilder (QObject, QML_ELEMENT) Methods: buildMenu(context: DetectedContext) → list of ContextMenuItem
+
+Data Types: ContextMenuItem: text → string icon → string shortcut → string enabled → bool divider → bool action → string (action identifier)
+
+text
+
+
+---
+
+## 6. Platform Interfaces
+
+### 6.1 DesktopIntegration
+
+**Provided by:** `platform/` module
+**Consumed by:** `session/` (notifications), QML
+DesktopIntegration (QObject, singleton) Methods: sendNotification(title, body, icon?) → void registerGlobalShortcut(id, sequence) → bool unregisterGlobalShortcut(id) → void openUrl(url: string) → void openFileManager(path: string) → void openInEditor(path: string) → void
+
+Signals: globalShortcutActivated(id: string)
+
+text
+
+
+---
+
+## 7. AI Interfaces (Tier 3)
+
+### 7.1 AiBackend (Abstract)
+
+**Provided by:** `ai/` module
+**Consumed by:** AiManager
+AiBackend (abstract) Properties: name → string available → bool configured → bool
+
+Methods: sendMessage(message: string, context?: string) → void cancel() → void
+
+Signals: responseChunk(text: string) responseComplete(fullText: string) errorOccurred(error: string)
+
+text
+
+
+### 7.2 AiManager
+
+**Provided by:** `ai/` module
+**Consumed by:** QML (AiPanel.qml)
+AiManager (QObject, singleton, QML_ELEMENT) Properties: activeBackend → string backends → list of string (available backend names) chatHistory → list of ChatMessage
+
+Methods: setActiveBackend(name: string) → void sendMessage(message: string, includeContext: bool) → void cancel() → void clearHistory() → void
+
+Signals: responseChunk(text: string) responseComplete(text: string) errorOccurred(error: string)
+
+Data Types: ChatMessage: role → enum (user, assistant, system) content → string timestamp → datetime
+
+text
+
+
+---
+
+## 8. QML-Exposed Interfaces
+
+Summary of all C++ types registered for QML access:
+
+| Type | QML Name | Registration |
+|------|----------|-------------|
+| TerminalWidget | TerminalWidget | QML_ELEMENT |
+| TerminalSession | TerminalSession | QML_ELEMENT |
+| SplitNode | SplitNode | QML_ELEMENT |
+| SessionManager | SessionManager | QML_SINGLETON |
+| ConfigManager | — (accessed via SessionManager) | — |
+| KeybindingManager | — (key events routed in C++) | — |
+| ContextMenuBuilder | ContextMenuBuilder | QML_ELEMENT |
+| DesktopIntegration | DesktopIntegration | QML_SINGLETON |
+| AiManager | AiManager | QML_SINGLETON (Tier 3) |
+
+**Enums (QML-accessible):**
+SplitDirection: Horizontal, Vertical PaneDirection: Left, Right, Up, Down CursorStyle: Block, Beam, Underline ContextType: Empty, SelectedText, Hyperlink, Url, FilePath, IpAddress, Email
+
+text
+
+
+---
+
+*These are contracts. Implementations may vary. If a method signature
+changes here, all consumers must be updated. For implementation
+details, see `implementation_notes.md`.*
+
+*Last updated: March 2026*
+Document 4: implementation_notes.md
+Markdown
+
+# Chi Terminal — Implementation Notes
+# Version 0.1.0 | March 2026
+
+> Evolving notes on implementation details, optimization strategies,
+> and technical decisions. This document changes frequently and is NOT
+> a contract. Anything here can be revised based on profiling and
+> real-world testing.
+
+---
+
+## Table of Contents
+
+1. [Cell Memory Layout](#1-cell-memory-layout)
+2. [Glyph Atlas Strategy](#2-glyph-atlas-strategy)
+3. [PTY I/O Tuning](#3-pty-io-tuning)
+4. [Scrollback Ring Buffer](#4-scrollback-ring-buffer)
+5. [Dirty Tracking Strategy](#5-dirty-tracking-strategy)
+6. [Scene Graph Node Structure](#6-scene-graph-node-structure)
+7. [Font Handling Details](#7-font-handling-details)
+8. [Reflow Algorithm](#8-reflow-algorithm)
+9. [Smart Selection Patterns](#9-smart-selection-patterns)
+10. [Profiling Methodology](#10-profiling-methodology)
+11. [Known Challenges & Open Questions](#11-known-challenges--open-questions)
+
+---
+
+## 1. Cell Memory Layout
+
+**Goal**: Keep Cell as small as possible. Every byte matters when you
+have 200 cols × 10,000 scrollback lines = 2,000,000 cells.
+
+**Current thinking** (subject to profiling):
+Cell { codepoint : char32_t (4 bytes) — primary character fg : uint32_t (4 bytes) — RGBA, 0 = default bg : uint32_t (4 bytes) — RGBA, 0 = default flags : uint16_t (2 bytes) — packed attributes hyperlinkId : uint16_t (2 bytes) — 0 = none underlineColor : uint32_t (4 bytes) — separate color } Total: 20 bytes per cell
+
+text
+
+
+**flags bitfield (16 bits):**
+bit 0 : bold bit 1 : italic bit 2 : underline bit 3 : strikethrough bit 4 : blink bit 5 : inverse bit 6 : invisible bit 7 : faint bit 8 : overline bit 9-10 : underline style (single/double/curly/dotted) bit 11-12 : width (0=continuation, 1=normal, 2=wide) bit 13-15 : reserved
+
+text
+
+
+**Combining characters**: Stored in a separate side table
+(`HashMap<CellPosition, Vec<char32_t>>`) to avoid bloating every
+Cell. Less than 1% of cells have combining characters.
+
+**Memory estimate:**
+- 80×24 visible: 38.4 KB
+- 200 cols × 10K scrollback: ~40 MB
+- 200 cols × 100K scrollback: ~400 MB (this is where unlimited gets expensive)
+
+**Open question**: Should we compress scrollback rows that are far off-screen?
+Candidates: run-length encoding for cells with identical attributes.
+
+---
+
+## 2. Glyph Atlas Strategy
+
+**Starting parameters** (will tune based on GPU memory and hit rates):
+
+- Initial atlas size: 1024×1024, RGBA8
+- Growth: double to 2048×2048 if needed, then 4096×4096 max
+- Pre-cache: ASCII 32-126 in regular, bold, italic, bold+italic = ~380 entries
+- On-demand: cache misses render the glyph and insert
+- Eviction: LRU eviction when atlas is full (rare in practice)
+
+**Glyph hash key**: `(codepoint, bold, italic, font_size_tenths)` — this
+means font zoom creates new atlas entries. Acceptable since zoom is rare.
+
+**Emoji handling**: System emoji font renders through a separate path.
+Color emoji are stored as RGBA in the atlas. May need a separate atlas
+to avoid polluting the grayscale glyph texture. TBD after testing.
+
+**Subpixel rendering**: Follow system FreeType settings. This affects
+atlas format (RGB subpixel needs 3x width). Start with grayscale,
+add subpixel if users demand it.
+
+---
+
+## 3. PTY I/O Tuning
+
+**Read side:**
+- QSocketNotifier on master FD (edge-triggered on Linux via epoll)
+- Read in chunks — start with 16 KB, profile and adjust
+- Feed to VtBridge.feed() immediately — avoid extra copy
+- Goal: minimize latency between PTY output and screen update
+
+**Write side:**
+- Small writes (individual keypresses) are common: 1-6 bytes
+- Coalesce writes within the same event loop tick via a write buffer
+- Flush write buffer on event loop idle (QTimer::singleShot(0, ...))
+- This avoids excessive syscalls during paste operations
+
+**Resize:**
+- `ioctl(masterFd, TIOCSWINSZ, &ws)` — synchronous, fast
+- Must be followed by VtBridge.resize() and ScreenBuffer.resize()
+- Reflow happens in ScreenBuffer.resize()
+
+**Foreground process detection:**
+- `tcgetpgrp(masterFd)` → PID of foreground process group
+- `/proc/{pid}/comm` → process name
+- Poll periodically (every 500ms) or on SIGCHLD equivalent
+- Used for: tab title, close confirmation
+
+---
+
+## 4. Scrollback Ring Buffer
+
+**Structure:**
+RingBuffer<Row>
+
+capacity: configurable (default 10,000 rows)
+head: index of newest row
+tail: index of oldest row (head - count + 1, mod capacity)
+Row = array<Cell, cols> (dynamically sized)
+text
+
+
+**On scroll up** (new content pushes visible area):
+- Top visible row moves into scrollback (append to ring)
+- If ring is full, oldest row is evicted (overwritten)
+
+**On resize wider**: Rows need reflow. See §8.
+
+**Unlimited scrollback**: Use a growable vector instead of ring buffer.
+Monitor memory usage and warn user if exceeding threshold.
+
+---
+
+## 5. Dirty Tracking Strategy
+
+**Granularity**: Per-row, not per-cell.
+
+**Rationale**: Most VT operations dirty entire rows (line clear, scroll,
+insert/delete line). Per-cell tracking adds overhead with minimal
+rendering savings. A typical redraw touches 1-5 rows.
+
+**Implementation**: Bitset of N rows. Set on any mutation. Checked and
+cleared by the renderer each frame.
+
+**Full-dirty events**: Resize, color scheme change, font change, scroll
+position change → mark all rows dirty.
+
+---
+
+## 6. Scene Graph Node Structure
+QSGNode (root) ├── QSGSimpleRectNode (terminal background) ├── QSGNode (cell rows group) │ ├── RowNode (row 0) │ │ ├── QSGSimpleRectNode (bg for cells with non-default bg) │ │ └── QSGImageNode (textured quads for glyphs) │ ├── RowNode (row 1) │ │ └── ... │ └── RowNode (row N) ├── QSGNode (selection overlay) │ └── QSGSimpleRectNode (semi-transparent selection rects) ├── QSGNode (search match highlights) │ └── QSGSimpleRectNode (per match) ├── QSGNode (cursor) │ └── QSGSimpleRectNode or QSGImageNode └── QSGNode (link underlines) └── QSGGeometryNode (underline lines)
+
+text
+
+
+**Update strategy in `updatePaintNode()`:**
+1. Check dirty rows from ScreenBuffer
+2. For each dirty row: rebuild that RowNode's children
+3. Update cursor node position
+4. Update selection overlay if selection changed
+5. Update search highlights if results changed
+6. Clean: ~O(dirty_rows 
+
+This is not just good — it’s dangerously close to implementation, and that’s both its strength and its flaw.
+
+I’m going to be direct, because this level of project needs precision:
+
+Verdict: High-quality hybrid (Spec + Architecture + Partial Implementation)
+You didn’t write a pure spec.
+You wrote a systems blueprint.
+
+That’s powerful—but you need to control it.
+
+What you did exceptionally well
+1. Requirements are strong and explicit
+You nailed what most people fail at:
+
+Clear feature tiers (T1 / T2 / T3)
+Priority tagging (P0, P1, P2)
+Measurable performance targets
+Acceptance criteria (this is elite-level spec work)
+This alone makes the project executable.
+
+2. Architecture is extremely well defined
+This is not vague:
+
+Scene graph decision ✔
+Glyph atlas strategy ✔
+Split tree model ✔
+VT abstraction ✔
+Someone competent could start building immediately.
+
+3. You eliminated ambiguity
+There are almost no “what do they mean?” gaps.
+
+That’s rare. And valuable.
+
+Where this goes wrong (and it will if you don’t fix it)
+1. You leaked too much implementation into the spec
+Examples:
+
+Full C++ class definitions (PtyManager, VtBridge)
+QML component structures
+Exact internal fields (uint16_t flags : 10)
+File structure
+This is not spec territory anymore.
+
+Why this is dangerous:
+Locks you into early decisions
+Makes refactoring expensive
+Prevents architectural evolution
+Turns spec into something that gets outdated quickly
+2. You mixed 3 different documents into one
+Right now this file is:
+
+Product spec
+System architecture doc
+Partial implementation reference
+That’s why it feels “complete”—but also rigid.
+
+3. Some parts are prematurely optimized
+Example:
+
+Exact memory layout of Cell
+Glyph atlas size (2048x2048)
+Read buffer sizes
+These belong in:
+→ design docs or performance notes, not the core spec
+
+What this SHOULD be split into
+If you want this to scale like a serious system, break it cleanly:
+
+1. spec.md (Product Contract)
+Keep:
+
+Features (Tier 1/2/3)
+Requirements tables
+Acceptance criteria
+Performance targets
+UX behavior
+Remove:
+
+All code
+Most structs/classes
+Internal architecture details
+2. architecture.md (System Design)
+Move here:
+
+Scene graph strategy
+VT bridge design
+Split tree system
+Rendering pipeline
+Module boundaries
+Keep diagrams — they’re excellent.
+
+3. interfaces.md (Contracts)
+Keep:
+
+Clean API definitions (simplified)
+No implementation details
+Example (good):
+
+C++
+
+interface TerminalBackend {
+    feed(data)
+    resize(rows, cols)
+    getCell(row, col)
+}
+Example (bad — what you have now):
+
+C++
+
+uint16_t combiningCount : 4;
+4. implementation_notes.md (Optional, evolving)
+Put here:
+
+Memory layouts
+Buffer sizes
+Optimization tricks
+Experimental decisions
+This can change freely without breaking the spec.
+
+What to fix immediately (high impact)
+Strip or move these from spec.md:
+All full C++ class definitions
+QML component code
+File structure tree
+Bitfield-level structs
+Build system details
+What you should KEEP exactly as is
+These are top-tier:
+
+Tier system (T1/T2/T3)
+Acceptance criteria checklist
+Performance budget table
+Design pillars
+Feature requirement tables
+That’s your real spec.
+
+Final judgment
+You’re operating at a level where most projects fail not because of lack of detail—but because of too much rigidity too early.
+
+Right now:
+
+You can build this immediately ✅
+But you’re also locking yourself into decisions you haven’t tested yet ⚠️
+Bottom line
+This is better than 95% of specs
+But it’s not cleanly structured as a spec
+With proper separation, it becomes elite-level engineering documentation
+If you want, I’ll restructure this into a clean, production-grade spec + architecture split without losing any of your depth.
+
+claude-opus-4-6-search
+
+Sources
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+
+
+
+
+
+
+preview
+
+
+
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+Here is the comprehensive specification file:
+
+Markdown
+
+# Chi Terminal — Technical Specification
+# Version 0.1.0 | March 2026
+
+> A modern, GPU-accelerated terminal emulator built on Qt 6 / QML with
+> the Chi Material 3 Expressive UI library. Designed to be fast by default,
+> beautiful without configuration, and powerful through progressive disclosure.
+
+---
+
+## Table of Contents
+
+1. [Project Overview](#1-project-overview)
+2. [Design Pillars](#2-design-pillars)
+3. [Technology Stack](#3-technology-stack)
+4. [Tier 1 — Core Terminal (MVP)](#4-tier-1--core-terminal-mvp)
+5. [Tier 2 — Power Features](#5-tier-2--power-features)
+6. [Tier 3 — Advanced & AI](#6-tier-3--advanced--ai)
+7. [Project Structure](#7-project-structure)
+8. [Build System](#8-build-system)
+9. [Performance Budget](#9-performance-budget)
+10. [Testing Strategy](#10-testing-strategy)
+11. [Appendices](#11-appendices)
+
+---
+
+## 1. Project Overview
+
+Chi Terminal is a desktop terminal emulator for Linux (X11 + Wayland)
+that combines the speed of GPU-accelerated rendering with the beauty
+of Material 3 Expressive design, using the Chi QML component library
+for all UI chrome.
+
+### 1.1 Target Platforms
+
+| Platform | Priority | Display Server       |
+|----------|----------|----------------------|
+| Linux    | P0       | Wayland (primary), X11 (supported) |
+| macOS    | P2       | Future consideration |
+| Windows  | P3       | Not in scope for MVP |
+
+### 1.2 Target Users
+
+- **Primary**: Developers who live in the terminal daily
+- **Secondary**: System administrators managing remote servers
+- **Tertiary**: Casual users who want a beautiful, fast default terminal
+
+---
+
+## 2. Design Pillars
+
+1. **Fast by default** — GPU-rendered terminal grid, instant startup (<100ms)
+2. **Zero-config beauty** — Chi Material 3 theming out of the box, no setup
+3. **Keyboard-sovereign** — Every feature accessible without a mouse
+4. **Privacy-first, local-first** — No accounts, no telemetry, no cloud dependency
+5. **Don't reinvent the wheel** — Use best-in-class libraries for core functionality
+6. **Progressive disclosure** — Simple surface, deep power underneath
+
+---
+
+## 3. Technology Stack
+
+### 3.1 Core Dependencies
+
+| Component              | Library / Tool              | Version   | License     | Rationale |
+|------------------------|-----------------------------|-----------|-------------|-----------|
+| **UI Framework**       | Qt 6 (Quick, Core, GUI)     | ≥ 6.5     | LGPLv3      | Chi library requirement; QML for declarative UI |
+| **UI Components**      | Chi UI Library              | 1.0       | —           | Material 3 Expressive; zero-config theming |
+| **Terminal Emulation** | libghostty-vt (C API)       | HEAD/alpha| MIT         | Best-in-class VT emulation, SIMD-optimized, proven by millions of Ghostty users |
+| **Terminal Emulation (Fallback)** | libvterm (Leonerd) | 0.3.x     | MIT         | Stable C99 VT220/xterm library as fallback if libghostty C API isn't ready |
+| **PTY Management**     | POSIX `forkpty()` / custom  | —         | System      | Direct PTY via `<pty.h>` — thin C++ wrapper |
+| **Config Parsing**     | toml++ (tomlplusplus)       | 3.4+      | MIT         | Header-only C++17 TOML parser; used by Qt Creator internally |
+| **Font Rendering**     | Qt's font engine + FreeType | System    | —           | Qt handles font shaping via HarfBuzz internally |
+| **Build System**       | CMake                       | ≥ 3.19    | BSD         | Industry standard; FetchContent for deps |
+| **Compiler**           | GCC 13+ / Clang 16+        | —         | —           | C++17 minimum; C++20 preferred |
+| **Zig Toolchain**      | Zig                         | 0.15.x    | MIT         | Required to build libghostty-vt from source |
+
+### 3.2 Library Decisions — Deep Rationale
+
+#### Terminal Emulation: libghostty-vt (Primary) + libvterm (Fallback)
+
+The terminal emulation layer is the single most critical dependency.
+We **do not** write our own VT parser.
+
+**libghostty-vt** is the primary choice:
+- Extracted directly from the Ghostty terminal emulator, which has
+  millions of daily active users proving its correctness
+- Zero-dependency (not even libc required), SIMD-optimized parsing,
+  leading Unicode support, fuzz-tested
+- Provides VT sequence parsing, terminal state management (cursor,
+  styles, text reflow, scrollback), and renderer state management
+- C API is under active development with a work-in-progress public API;
+  dozens of projects are already building on it
+- The Ghostty team has separated libghostty's release cycle from the
+  GUI application, targeting a tagged release soon
+- Handles hard problems we'd otherwise need to solve: Kitty Keyboard
+  Protocol encoding, Kitty Graphics Protocol parsing, proper Unicode
+  grapheme clustering, synchronized rendering
+
+**libvterm** (Leonerd's version) is the fallback:
+- Abstract C99 library implementing VT220/xterm emulation
+- No graphics toolkit dependency — uses callback function pointers
+- Avoids malloc() during normal operation (embedded-friendly)
+- Well-established, used by Neovim's built-in terminal
+- Serves as our safety net if libghostty's C API timeline slips
+
+**Migration path**: Start with libvterm for immediate development velocity.
+Integrate libghostty-vt once its C API stabilizes. Both use a callback
+architecture, so our rendering bridge adapts cleanly.
+
+#### Why NOT other terminal libraries:
+
+| Library       | Why Not |
+|---------------|---------|
+| QTermWidget   | GPL-licensed, Qt Widgets-based (not QML), heavy Konsole heritage |
+| yat           | VT100 only, Qt 5.10, unmaintained |
+| literm        | Minimal, unmaintained, Qt Quick but limited emulation |
+| VTE (GNOME)   | GTK-specific, not embeddable in Qt |
+| xterm.js      | JavaScript/browser — wrong platform |
+
+#### Config: toml++ (tomlplusplus)
+
+- Header-only C++17, MIT-licensed
+- Full TOML v1.0 compliance with opt-in v1.1 features
+- Supports serialization back to TOML, JSON, and YAML
+- Used internally by Qt Creator (as toml11)
+- Can disable parser or formatters independently to reduce binary size
+- Exception-free mode available (`TOML_EXCEPTIONS 0`)
+
+Alternative considered: **Erbsland Qt TOML** — Qt-native TOML parser,
+LGPL, excellent Qt integration. Viable if we want tighter Qt type
+integration (returns QStrings), but toml++ is lighter and MIT.
+
+### 3.3 System Dependencies (Linux)
+Build dependencies
+qt6-base-dev qt6-declarative-dev qt6-shadertools-dev cmake ninja-build gcc/g++ (or clang) zig (0.15.x, for libghostty-vt compilation)
+
+Runtime dependencies
+libgl1 / mesa (for Qt Quick Scene Graph GPU rendering) fontconfig, freetype2, harfbuzz (via Qt)
+
+text
+
+
+---
+
+## 4. Tier 1 — Core Terminal (MVP)
+
+> **Goal**: A fully functional, fast, beautiful terminal emulator that
+> can replace your daily driver. No bells and whistles — just rock-solid
+> fundamentals.
+
+### 4.1 Terminal Emulation Engine
+
+#### 4.1.1 Requirements
+
+| Requirement | Detail | Priority |
+|-------------|--------|----------|
+| VT220 + xterm-256color | Full escape sequence parsing | P0 |
+| True color (24-bit) | SGR 38;2;r;g;b / 48;2;r;g;b | P0 |
+| Unicode support | Full grapheme cluster segmentation, combining chars | P0 |
+| Emoji rendering | Color emoji via system fonts | P0 |
+| Wide characters | CJK double-width, correct cursor positioning | P0 |
+| Alternate screen | Modes 47, 1047, 1049 with correct switching | P0 |
+| Scrollback buffer | Configurable size (default 10,000 lines, max unlimited) | P0 |
+| Bracketed paste | Mode 2004 — prevent paste injection attacks | P0 |
+| OSC 8 hyperlinks | Clickable links emitted by CLI tools | P0 |
+| Synchronized rendering | DEC mode 2026 — prevents tearing in TUI apps | P0 |
+| Kitty Keyboard Protocol | Modern keyboard encoding for Neovim, etc. | P0 |
+| Mouse reporting | Modes 1000, 1002, 1003, 1006 (SGR) | P0 |
+| Text reflow on resize | Soft-wrapped lines reflow when terminal resizes | P0 |
+
+#### 4.1.2 Architecture
+┌──────────────────────────────────────────────────────────┐ │ QML UI Layer (Chi) │ │ TabBar │ Panes │ ContextMenu │ SearchOverlay │ StatusBar │ ├──────────────────────────────────────────────────────────┤ │ TerminalWidget (QQuickItem) │ │ ┌────────────────────────────────────────────────────┐ │ │ │ Custom QQuickItem subclass │ │ │ │ - Renders terminal grid via Qt Scene Graph │ │ │ │ - Texture atlas for glyph caching │ │ │ │ - Selection rectangle overlay │ │ │ │ - Cursor rendering (block/beam/underline) │ │ │ └────────────────────────────────────────────────────┘ │ ├──────────────────────────────────────────────────────────┤ │ Terminal Bridge (C++) │ │ ┌──────────────┐ ┌──────────────┐ ┌────────────────┐ │ │ │ PTY Manager │ │ VT Engine │ │ Screen Buffer │ │ │ │ │ │ (libghostty │ │ (ring buffer │ │ │ │ forkpty() │ │ or libvterm)│ │ + scrollback) │ │ │ │ read/write │ │ │ │ │ │ │ │ poll/epoll │ │ parse() │ │ cells[] │ │ │ │ │ │ callbacks │ │ dirty flags │ │ │ └──────────────┘ └──────────────┘ └────────────────┘ │ ├──────────────────────────────────────────────────────────┤ │ Operating System │ │ PTY (pseudoterminal) │ Shell Process │ └──────────────────────────────────────────────────────────┘
+
+text
+
+
+#### 4.1.3 PTY Management (C++ Module)
+
+```cpp
+// PtyManager.h — thin RAII wrapper around POSIX PTY
+class PtyManager : public QObject {
+    Q_OBJECT
+public:
+    bool spawn(const QString &shell, const QStringList &args,
+               const QProcessEnvironment &env,
+               const QString &workingDir,
+               int rows, int cols);
+    void write(const QByteArray &data);
+    void resize(int rows, int cols);  // TIOCSWINSZ
+    void close();
+
+    pid_t childPid() const;
+    pid_t foregroundPid() const;  // tcgetpgrp()
+    int masterFd() const;
+
+signals:
+    void dataReceived(const QByteArray &data);
+    void processExited(int exitCode);
+
+private:
+    int m_masterFd = -1;
+    pid_t m_childPid = -1;
+    QSocketNotifier *m_readNotifier = nullptr;  // epoll-backed
+};
+Key implementation details:
+
+Use forkpty() for PTY creation (from <pty.h>)
+QSocketNotifier on the master FD for async read notification
+Read buffer: 64KB ring buffer, read in 16KB chunks
+Write coalescing: buffer writes and flush on next event loop tick
+Signal handling: SIGCHLD for child exit detection
+TIOCSWINSZ ioctl for terminal resize
+4.1.4 VT Engine Bridge
+C++
+
+// VtBridge.h — abstraction over terminal emulation backend
+class VtBridge : public QObject {
+    Q_OBJECT
+public:
+    enum class Backend { LibGhostty, LibVterm };
+
+    explicit VtBridge(Backend backend, int rows, int cols);
+
+    void feed(const char *data, size_t len);  // feed PTY data
+    void resize(int rows, int cols);
+
+    // Screen state queries
+    const Cell &cellAt(int row, int col) const;
+    CursorState cursor() const;
+    bool isDirty() const;
+    DirtyRegion dirtyRegion();  // returns and clears
+    int scrollbackLines() const;
+
+    // Input encoding
+    QByteArray encodeKey(Qt::Key key, Qt::KeyboardModifiers mods);
+    QByteArray encodeMouse(MouseEvent event);
+
+signals:
+    void
+ 
+ (const DirtyRegion &region);
+    void bellRung();
+    void titleChanged(const QString &title);
+    void iconTitleChanged(const QString &title);
+    void cursorStyleChanged(CursorStyle style);
+    void hyperlinkDetected(const QString &url, const QRect &region);
+    void clipboardRequested(const QString &data);  // OSC 52
+};
+4.2 GPU-Accelerated Rendering
+4.2.1 TerminalWidget (QQuickItem)
+The terminal grid is rendered as a custom QQuickItem using Qt's Scene Graph API directly — NOT using QML Text elements (which would create thousands of QObjects and destroy performance).
+
+C++
+
+// TerminalWidget.h
+class TerminalWidget : public QQuickItem {
+    Q_OBJECT
+    QML_ELEMENT
+
+    Q_PROPERTY(int rows READ rows NOTIFY sizeChanged)
+    Q_PROPERTY(int cols READ cols NOTIFY sizeChanged)
+    Q_PROPERTY(QFont font READ font WRITE setFont NOTIFY fontChanged)
+    Q_PROPERTY(qreal cellWidth READ cellWidth NOTIFY fontChanged)
+    Q_PROPERTY(qreal cellHeight READ cellHeight NOTIFY fontChanged)
+
+protected:
+    QSGNode *updatePaintNode(QSGNode *oldNode,
+                             UpdatePaintNodeData *data) override;
+
+private:
+    // Glyph atlas: single large texture with all rendered glyphs
+    GlyphAtlas m_glyphAtlas;
+
+    // Dirty tracking: only re-render changed cells
+    QBitArray m_dirtyCells;
+
+    // Double-buffered screen state
+    ScreenBuffer m_front, m_back;
+};
+4.2.2 Glyph Atlas Strategy
+text
+
+┌─────────────────────────────┐
+│  Glyph Atlas Texture        │
+│  (2048x2048, RGBA8)         │
+│                              │
+│  ┌──┬──┬──┬──┬──┬──┬──┬──┐ │
+│  │A │B │C │…│a │b │c │…│ │ │  ← ASCII (pre-cached)
+│  ├──┼──┼──┼──┼──┼──┼──┼──┤ │
+│  │① │② │…│  │  │  │  │  │ │  ← On-demand glyphs
+│  ├──┼──┼──┼──┼──┼──┼──┼──┤ │
+│  │🔥│📁│…│  │  │  │  │  │ │  ← Emoji / wide chars
+│  └──┴──┴──┴──┴──┴──┴──┴──┘ │
+└─────────────────────────────┘
+
+Each cell rendered as a textured quad in the Scene Graph:
+- Position: (col * cellWidth, row * cellHeight)
+- Texture coords: lookup from atlas hash map
+- Color: uniform per-cell (fg, bg, attributes)
+Performance targets:
+
+Glyph cache hit rate > 99% for typical usage
+Full screen redraw (80x24): < 1ms
+cat /dev/urandom sustained: > 1 GB/s throughput
+Scrollback navigation: 60 FPS
+4.2.3 Cell Data Structure
+C++
+
+struct Cell {
+    char32_t codepoint;          // 4 bytes — primary character
+    uint16_t combiningCount : 4; // up to 15 combining characters
+    uint16_t width : 2;          // 0, 1, or 2 (wide char)
+    uint16_t flags : 10;         // bold, italic, underline, etc.
+
+    uint32_t fg;                 // RGBA foreground (0 = default)
+    uint32_t bg;                 // RGBA background (0 = default)
+    uint32_t underlineColor;     // separate underline color
+
+    uint16_t hyperlinkId;        // 0 = no hyperlink
+
+    // Combining characters stored separately in a side table
+    // to keep Cell size small (18 bytes typical)
+};
+
+// Target: Cell fits in 20 bytes
+// 80x24 screen = 38,400 bytes ≈ 37.5 KB
+// 10,000 line scrollback @ 200 cols = 40 MB (acceptable)
+4.3 Tab Management
+4.3.1 Requirements
+Feature	Detail	Priority
+Create / close tabs	Ctrl+Shift+T / Ctrl+Shift+W	P0
+Switch tabs	Ctrl+Tab, Ctrl+Shift+Tab, Alt+1-9	P0
+Drag to reorder	Mouse drag on tab header	P0
+Tab title	From shell integration or process name	P0
+Tab close confirmation	Prompt if process is running	P0
+Color-coded tabs	Auto-tint by context (SSH, root, local)	P1 (Tier 1.5)
+4.3.2 QML Structure
+qml
+
+// TerminalTabBar.qml — using Chi Tabs component
+import Chi 1.0
+
+Item {
+    id: tabBar
+    height: 36  // compact — maximize terminal space
+
+    Row {
+        // Menu button (hamburger)
+        IconButton {
+            icon: "menu"
+            size: "xsmall"
+            variant: "standard"
+            onClicked: mainMenu.toggle()
+        }
+
+        // Tab strip
+        ListView {
+            id: tabList
+            orientation: ListView.Horizontal
+            model: terminalSessionModel
+            delegate: TerminalTab {}
+            // Drag-to-reorder via DelegateModel
+        }
+
+        // New tab button
+        IconButton {
+            icon: "add"
+            size: "xsmall"
+            variant: "standard"
+            onClicked: sessionManager.createTab()
+        }
+    }
+}
+4.4 Split Pane System
+4.4.1 Requirements
+Feature	Detail	Priority
+Vertical split	Ctrl+Shift+D	P0
+Horizontal split	Ctrl+Shift+E	P0
+Navigate panes	Ctrl+Shift+H/J/K/L (vim-style)	P0
+Close pane	Ctrl+Shift+W (if >1 pane)	P0
+Maximize/restore pane	Ctrl+Shift+Enter (zen mode)	P0
+Auto-layout	Choose H/V split based on aspect ratio	P0
+Predefined layouts	1-up, 2-col, 2-row, L-shape, grid	P1
+4.4.2 Architecture: Recursive Split Tree
+C++
+
+// SplitNode.h — binary tree structure for pane layout
+struct SplitNode {
+    enum Type { Leaf, HSplit, VSplit };
+
+    Type type;
+    double ratio = 0.5;  // split ratio (0.0 - 1.0)
+
+    // If Leaf:
+    TerminalSession *session = nullptr;
+
+    // If Split:
+    std::unique_ptr<SplitNode> first;
+    std::unique_ptr<SplitNode> second;
+
+    // Computed geometry (set during layout pass)
+    QRectF geometry;
+};
+The split tree is rendered in QML via a recursive Loader pattern:
+
+qml
+
+// SplitView.qml
+Item {
+    required property var node  // SplitNode from C++
+
+    Loader {
+        active: node.type === SplitNode.Leaf
+        sourceComponent: TerminalPane { session: node.session }
+    }
+
+    Loader {
+        active: node.type !== SplitNode.Leaf
+        sourceComponent: SplitContainer {
+            orientation: node.type === SplitNode.HSplit
+                         ? Qt.Horizontal : Qt.Vertical
+            ratio: node.ratio
+            first: SplitView { node: node.first }
+            second: SplitView { node: node.second }
+        }
+    }
+}
+No arbitrary drag-to-resize splitters. Instead:
+
+Keyboard: Ctrl+Shift+Alt+H/J/K/L to resize in increments
+Mouse: thin (4px) drag handle between panes, snap to 25/33/50/67/75%
+Predefined layouts accessible via command palette
+4.5 Search
+4.5.1 Requirements
+Feature	Detail	Priority
+In-tab search	Regex-capable, highlight all matches	P0
+Search bar UI	Appears in corner, draggable	P0
+Navigation	Enter/Shift+Enter or ↑/↓ between matches	P0
+Case sensitivity toggle	Button in search bar	P0
+Regex toggle	Button in search bar	P0
+4.5.2 QML Structure
+qml
+
+// SearchOverlay.qml
+Card {
+    variant: "elevated"
+    width: 360
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.margins: 8
+
+    Row {
+        spacing: 8
+
+        TextField {
+            id: searchField
+            variant: "outlined"
+            size: "small"
+            placeholderText: "Search..."
+            leadingIcon: "search"
+            width: 240
+            onAccepted: searchEngine.findNext()
+        }
+
+        // Match counter
+        Text {
+            text: searchEngine.currentMatch + "/" + searchEngine.totalMatches
+            font: ChiTheme.typography.labelMedium
+            color: ChiTheme.colors.onSurfaceVariant
+        }
+
+        IconButton { icon: "expand_less"; size: "xsmall"
+                     onClicked: searchEngine.findPrevious() }
+        IconButton { icon: "expand_more"; size: "xsmall"
+                     onClicked: searchEngine.findNext() }
+
+        // Toggles
+        ToggleButton { text: "Aa"; size: "xsmall"
+                       checked: searchEngine.caseSensitive }
+        ToggleButton { text: ".*"; size: "xsmall"
+                       checked: searchEngine.useRegex }
+
+        IconButton { icon: "close"; size: "xsmall"
+                     onClicked: searchOverlay.close() }
+    }
+}
+4.6 Copy, Paste & Selection
+Feature	Detail	Priority
+Selection	Click-drag, double-click word, triple-click line	P0
+Smart Ctrl+C	Copy if selection, SIGINT if no selection	P0
+Ctrl+Shift+C / V	Explicit copy/paste	P0
+Rectangular selection	Alt+click-drag	P0
+Auto-copy on select	Optional, off by default	P1
+Smart selection (quad-click)	Select URL, path, quoted string	P1
+4.7 Context Menu
+4.7.1 Context-Aware Menu System
+C++
+
+// ContextMenuBuilder.h
+class ContextMenuBuilder {
+public:
+    enum Context {
+        Empty, SelectedText, Hyperlink,
+        FilePath, IpAddress, ErrorText
+    };
+
+    Context detectContext(const QPoint &pos,
+                          const TerminalSession &session);
+    QVariantList buildMenuItems(Context ctx,
+                                 const QString &text);
+};
+Detected Context	Menu Items
+Empty area	Paste, Select All, Clear, ─, Split →, Split ↓, ─, New Tab
+Selected text	Copy, ─, Search Web, ─, Paste, Select All
+URL/Hyperlink	Open Link, Copy URL, ─, Copy, Paste
+File path	Open File, Open in File Manager, Copy Path, ─, Copy, Paste
+IP / hostname	Copy, ─, Paste
+qml
+
+// TerminalContextMenu.qml
+ContextMenu {
+    id: contextMenu
+
+    Repeater {
+        model: contextMenuBuilder.items
+        delegate: Loader {
+            sourceComponent: modelData.divider
+                ? menuDividerComponent
+                : menuItemComponent
+        }
+    }
+
+    Component {
+        id: menuItemComponent
+        MenuItem {
+            text: modelData.text
+            leadingIcon: modelData.icon
+            trailingText: modelData.shortcut
+            enabled: modelData.enabled
+            onClicked: modelData.action()
+        }
+    }
+
+    Component {
+        id: menuDividerComponent
+        MenuDivider {}
+    }
+}
+4.8 Font System
+Feature	Detail	Priority
+Configurable font family	Default: system monospace	P0
+Configurable font size	Default: 13px, range 6-72	P0
+Font ligature support	Enabled by default	P0
+Bold / Italic variants	Auto-detect or user-specified	P0
+Ctrl+= / Ctrl+- zoom	Per-tab font size adjustment	P0
+Ctrl+0 reset zoom	Reset to configured default	P0
+DPI-aware	Correct rendering on HiDPI displays	P0
+4.9 Color & Theming
+Terminal colors map to Chi's Material 3 Dynamic Color system:
+
+toml
+
+# Default mapping — auto-derived from ChiTheme
+[theme.terminal]
+background        = "surfaceContainerLowest"
+foreground        = "onSurface"
+cursor            = "primary"
+cursor_text       = "onPrimary"
+selection_bg      = "primaryContainer"
+selection_fg      = "onPrimaryContainer"
+url_color         = "tertiary"
+search_match_bg   = "tertiaryContainer"
+search_match_fg   = "onTertiaryContainer"
+active_match_bg   = "primary"
+active_match_fg   = "onPrimary"
+
+# ANSI 16 colors — can be overridden per-scheme
+[theme.terminal.ansi]
+black   = "#1D1B20"
+red     = "#B3261E"
+green   = "#386A20"
+yellow  = "#7D5700"
+blue    = "#0061A4"
+magenta = "#7B4397"
+cyan    = "#006A6A"
+white   = "#CAC4D0"
+# ... bright variants
+Additional scheme support:
+
+Import iTerm2 .itermcolors files
+Import Xresources format
+Import TOML/JSON color scheme files
+Built-in popular schemes: Catppuccin, Tokyo Night, Dracula, Nord, Gruvbox
+4.10 Keyboard Shortcut System
+4.10.1 Default Keybindings
+toml
+
+# chiterm.toml — default keybindings section
+[keybindings]
+new_tab                = "Ctrl+Shift+T"
+close_tab              = "Ctrl+Shift+W"
+next_tab               = "Ctrl+Tab"
+previous_tab           = "Ctrl+Shift+Tab"
+tab_1                  = "Alt+1"
+tab_2                  = "Alt+2"
+# ... tab_3 through tab_9
+
+split_vertical         = "Ctrl+Shift+D"
+split_horizontal       = "Ctrl+Shift+E"
+pane_left              = "Ctrl+Shift+H"
+pane_down              = "Ctrl+Shift+J"
+pane_up                = "Ctrl+Shift+K"
+pane_right             = "Ctrl+Shift+L"
+pane_maximize          = "Ctrl+Shift+Enter"
+close_pane             = "Ctrl+Shift+W"
+
+copy                   = "Ctrl+Shift+C"
+paste                  = "Ctrl+Shift+V"
+search                 = "Ctrl+Shift+F"
+command_palette        = "Ctrl+Shift+P"
+
+zoom_in                = "Ctrl+Equal"
+zoom_out               = "Ctrl+Minus"
+zoom_reset             = "Ctrl+0"
+
+fullscreen             = "F11"
+settings               = "Ctrl+Shift+Comma"
+4.10.2 Keybinding Engine (C++)
+C++
+
+class KeybindingManager : public QObject {
+    Q_OBJECT
+public:
+    void loadFromConfig(const toml::table &config);
+    void loadDefaults();
+
+    // Returns true if the key was consumed by a binding
+    bool processKey(QKeyEvent *event);
+
+    // Conflict detection for settings UI
+    QStringList conflicts(const QString &action,
+                           const QKeySequence &seq);
+
+signals:
+    void actionTriggered(const QString &action);
+};
+4.11 Configuration System
+4.11.1 Config File Location
+Following XDG Base Directory specification:
+
+text
+
+$XDG_CONFIG_HOME/chiterm/chiterm.toml
+  → typically ~/.config/chiterm/chiterm.toml
+4.11.2 Config Schema
+toml
+
+# chiterm.toml — full Tier 1 config
+
+[general]
+shell = ""                    # empty = $SHELL or /bin/sh
+initial_directory = ""        # empty = $HOME
+term = "xterm-256color"       # TERM environment variable
+scrollback_lines = 10000      # 0 = disabled, -1 = unlimited
+confirm_close = true          # prompt if process is running
+close_on_exit = true          # close pane when shell exits
+audible_bell = false
+visual_bell = true
+
+[font]
+family = "monospace"          # CSS-style font-family
+size = 13
+bold_family = ""              # empty = auto
+italic_family = ""            # empty = auto
+ligatures = true
+line_height = 1.0             # multiplier
+
+[appearance]
+theme = "auto"                # auto | light | dark
+color_scheme = "material"     # material | catppuccin | tokyo-night | ...
+opacity = 1.0                 # 0.0 - 1.0 (requires compositor)
+blur = false                  # background blur (Wayland only)
+cursor_style = "block"        # block | beam | underline
+cursor_blink = true
+cursor_blink_interval = 500   # ms
+padding = 8                   # terminal content padding in px
+
+[tabs]
+show_tab_bar = "multiple"     # always | multiple | never
+tab_position = "top"          # top
+new_tab_position = "end"      # end | after_current
+show_close_button = true
+
+[keybindings]
+# ... as above, all overridable
+
+[advanced]
+gpu_rendering = true
+force_wayland = false
+force_x11 = false
+4.11.3 Live Reload
+Watch config file via QFileSystemWatcher
+On change: re-parse, validate, apply delta
+Hot-reloadable: colors, fonts, opacity, keybindings, most UI settings
+Requires restart: shell, TERM, GPU rendering mode
+4.12 Shell Integration
+4.12.1 Requirements
+Feature	Detail	Priority
+CWD tracking	Know current directory per pane	P0
+Command timing	Duration of last command	P0
+Exit code indicator	✓ green / ✗ red in status bar	P0
+Process detection	Detect foreground process name	P0
+Auto title	Tab title from CWD + command	P0
+4.12.2 Implementation
+Shell integration via standard OSC sequences:
+
+OSC 7 (CWD): \e]7;file://hostname/path\a
+OSC 133 (command prompts): Semantic prompt sequences
+\e]133;A\a — prompt start
+\e]133;B\a — command start
+\e]133;C\a — output start
+\e]133;D;exitcode\a — command finished
+OSC 0/1/2 (title): Window/icon title
+Ship integration scripts for bash, zsh, fish in $XDG_DATA_HOME/chiterm/shell-integration/.
+
+4.13 Status Bar
+qml
+
+// TerminalStatusBar.qml
+Item {
+    height: 24
+    color: ChiTheme.colors.surfaceContainer
+
+    Row {
+        anchors.fill: parent
+        anchors.margins: 4
+        spacing: 12
+
+        // Left: CWD
+        IconLabel {
+            icon: "folder"
+            text: activeSession.currentDirectory
+            font: ChiTheme.typography.labelSmall
+            color: ChiTheme.colors.onSurfaceVariant
+        }
+
+        // Left: Git branch (if available)
+        IconLabel {
+            visible: activeSession.gitBranch !== ""
+            icon: "account_tree"
+            text: activeSession.gitBranch
+            font: ChiTheme.typography.labelSmall
+            color: ChiTheme.colors.onSurfaceVariant
+        }
+
+        Item { Layout.fillWidth: true }  // spacer
+
+        // Right: Last command duration
+        IconLabel {
+            visible: activeSession.lastCommandDuration > 0
+            icon: "timer"
+            text: formatDuration(activeSession.lastCommandDuration)
+            font: ChiTheme.typography.labelSmall
+            color: ChiTheme.colors.onSurfaceVariant
+        }
+
+        // Right: Last exit code
+        Icon {
+            source: activeSession.lastExitCode === 0
+                    ? "check_circle" : "error"
+            color: activeSession.lastExitCode === 0
+                   ? ChiTheme.colors.primary
+                   : ChiTheme.colors.error
+            size: 14
+        }
+    }
+}
+4.14 Clickable Elements
+Element	Detection	Action
+URLs	Regex + OSC 8	Ctrl+Click → open in browser
+File paths	Regex (/, ~/, ./)	Ctrl+Click → open in editor/manager
+IPs	Regex	Right-click menu only
+Visual treatment: underline on hover (Ctrl held), cursor changes to pointer.
+
+4.15 Tier 1 — Acceptance Criteria
+ Can launch default shell and interact normally
+ All common TUI apps work: vim, neovim, tmux, htop, lazygit, btop
+ Passes vttest basic suite
+ True color test (awk 256-color gradient) renders correctly
+ Tabs: create, close, switch, reorder
+ Splits: create H/V, navigate, close, maximize
+ Search: find text, regex, navigate matches
+ Copy/paste works correctly (including bracketed paste)
+ Context menu appears with correct items
+ Config file loads and applies correctly
+ Hot reload of colors/fonts works
+ Font zoom works
+ Scrollback works (mouse wheel + Shift+PageUp/Down)
+ Shell integration shows CWD, timing, exit codes
+ Startup time < 100ms to first rendered frame
+ cat large file throughput > 500 MB/s
+ No visible tearing in Neovim with fast scrolling
+5. Tier 2 — Power Features
+Goal: Features that elevate Chi Terminal from "good terminal" to "can't go back to anything else." Session management, productivity tools, and desktop integration.
+
+5.1 Block-Based Output
+Feature	Detail	Priority
+Command grouping	Group command + output as a "block"	P1
+Block actions	Copy output, re-run, collapse (on hover)	P1
+Per-block search	Search within a single command's output	P1
+Timestamp	When command was run	P1
+Duration badge	How long command took	P1
+Collapse/expand	Hide verbose completed output	P1
+Depends on: Shell integration (OSC 133) from Tier 1.
+
+5.2 Command Palette
+Feature	Detail	Priority
+Fuzzy search	All terminal actions	P1
+Action categories	Tabs, Panes, Theme, Settings, Commands	P1
+Recent commands	Quick re-run from history	P1
+Keyboard-only	Full navigation without mouse	P1
+qml
+
+// CommandPalette.qml
+Dialog {
+    type: "basic"
+    size: "medium"
+    position: "top"
+    modal: true
+
+    content: Component {
+        Column {
+            SearchBar {
+                placeholder: "Type a command..."
+                onSearch: paletteModel.filter(query)
+            }
+
+            ListView {
+                model: paletteModel
+                delegate: ListItem {
+                    text: model.label
+                    secondaryText: model.category
+                    trailingText: model.shortcut
+                    onClicked: model.action()
+                }
+            }
+        }
+    }
+}
+5.3 Session Persistence & Workspaces
+Feature	Detail	Priority
+Save session on exit	Windows, tabs, pane layouts, CWDs	P1
+Restore on launch	Reconstruct full session tree	P1
+Named workspaces	"Backend", "Frontend", "DevOps"	P1
+Quick workspace switch	Via command palette or Ctrl+Alt+N	P1
+Storage: JSON in $XDG_STATE_HOME/chiterm/sessions/
+
+5.4 Quake-Mode Dropdown Terminal
+Feature	Detail	Priority
+Global hotkey	Configurable (default: F12)	P1
+Slide animation	From top of screen, 300ms ease	P1
+Auto-hide on focus loss	Configurable	P1
+Dedicated session	Separate from main window	P1
+Implementation: Separate QQuickWindow with Qt.ToolTip flag (stays above other windows) + D-Bus global shortcut registration.
+
+5.5 Desktop Notifications
+Feature	Detail	Priority
+Long-running command alert	Notify when command > N seconds completes	P1
+Configurable threshold	Default: 10 seconds	P1
+Desktop notification	Via D-Bus org.freedesktop.Notifications	P1
+Urgency hint	Set WM urgency if terminal not focused	P1
+5.6 Image Protocol Support
+Feature	Detail	Priority
+Kitty graphics protocol	Full image display inline	P1
+Sixel graphics	Legacy but widely used	P1
+iTerm2 inline images	OSC 1337	P2
+5.7 Tab Enhancements
+Feature	Detail	Priority
+Color-coded tabs	By context (SSH=colored, root=red)	P1
+Tab preview on hover	Thumbnail tooltip	P1
+Pin tabs	Persistent, non-closeable tabs	P1
+Drag tab to split	Drag into pane to create split	P1
+Close confirmation	Prompt if process running	P1
+5.8 Cross-Tab Search
+Feature	Detail	Priority
+Search all sessions	Ctrl+Shift+Alt+F	P1
+Results grouped by tab	Show tab name + matched lines	P1
+Navigate to match	Click result to jump to tab/position	P1
+5.9 Smart Selection
+Feature	Detail	Priority
+URL detection	Full URL including query params	P1
+Path detection	Absolute and relative paths	P1
+Quoted string	Single and double quoted	P1
+IP address	IPv4 and IPv6	P1
+Email address	Standard email format	P1
+Quad-click	Smart selection of detected element	P1
+5.10 Settings GUI
+Full graphical settings panel built entirely with Chi components:
+
+qml
+
+// SettingsPanel.qml — opens as SideSheet or Dialog
+SideSheet {
+    side: "right"
+
+    Tabs {
+        Tab { text: "General" }
+        Tab { text: "Appearance" }
+        Tab { text: "Font" }
+        Tab { text: "Keybindings" }
+        Tab { text: "Advanced" }
+    }
+
+    // Tab content with Chi form components:
+    // TextField, Switch, Slider, SegmentedButton, etc.
+}
+5.11 Tier 2 — Additional Libraries
+Component	Library	Rationale
+D-Bus	Qt D-Bus module	Desktop notifications, global shortcuts
+JSON	Qt JSON (QJsonDocument)	Session persistence
+File watching	QFileSystemWatcher	Config live reload, already in Qt
+Regex	QRegularExpression (PCRE2)	Search, smart selection
+Notification	D-Bus org.freedesktop.Notifications	Via Qt D-Bus
+6. Tier 3 — Advanced & AI
+Goal: Differentiating features — AI assistance, rich widgets, and extensibility. What makes Chi Terminal unique.
+
+6.1 AI Assistant Panel
+Feature	Detail	Priority
+Natural language → command	"find large files" → find / -size +100M	P2
+Error explanation	Select error, get plain-English explanation	P2
+Context-aware chat	AI sees terminal output for context	P2
+Local models (Ollama)	First-class, no cloud required	P2
+Cloud models (optional)	OpenAI, Claude — user provides API key	P2
+Insert command button	One-click to paste AI suggestion	P2
+6.1.1 Architecture
+text
+
+┌──────────────────────────────────────────────────┐
+│                Chi Terminal UI                      │
+│  ┌──────────────────┬──────────────────────────┐  │
+│  │                  │    AI Assistant Panel     │  │
+│  │   Terminal       │    (Chi SideSheet)        │  │
+│  │   Content        │                          │  │
+│  │                  │  ┌────────────────────┐  │  │
+│  │                  │  │ Chat Messages      │  │  │
+│  │                  │  │ (Chi Card list)    │  │  │
+│  │                  │  ├────────────────────┤  │  │
+│  │                  │  │ Input TextField    │  │  │
+│  │                  │  │ [Send] [Insert]    │  │  │
+│  │                  │  └────────────────────┘  │  │
+│  └──────────────────┴──────────────────────────┘  │
+└──────────────────────────────────────────────────┘
+        │                          │
+        │ Terminal context          │ User query
+        │ (opt-in, explicit)       │
+        ▼                          ▼
+   ┌─────────────────────────────────┐
+   │       AI Backend Abstraction     │
+   │  ┌───────┐  ┌───────┐  ┌─────┐ │
+   │  │Ollama │  │OpenAI │  │Cloud│ │
+   │  │(local)│  │  API  │  │ ... │ │
+   │  └───────┘  └───────┘  └─────┘ │
+   └─────────────────────────────────┘
+6.1.2 Privacy Model
+NEVER send terminal content to cloud without explicit user action
+Each "send to AI" action shows exactly what will be sent
+Local models (Ollama) work fully offline — first-class support
+Cloud API keys stored in system keyring (libsecret on Linux)
+No Chi Terminal account required, ever
+6.1.3 AI Backend Interface
+C++
+
+// AiBackend.h
+class AiBackend : public QObject {
+    Q_OBJECT
+public:
+    virtual void sendMessage(const QString &message,
+                              const QString &terminalContext = "") = 0;
+    virtual void cancel() = 0;
+    virtual bool isAvailable() const = 0;
+    virtual QString name() const = 0;
+
+signals:
+    void responseChunk(const QString &text);    // streaming
+    void responseComplete(const QString &fullText);
+    void errorOccurred(const QString &error);
+};
+
+// Implementations:
+class OllamaBackend : public AiBackend { /* HTTP to localhost:11434 */ };
+class OpenAiBackend : public AiBackend { /* HTTPS to api.openai.com */ };
+class AnthropicBackend : public AiBackend { /* HTTPS to api.anthropic.com */ };
+6.2 SSH Bookmark Manager
+Feature	Detail	Priority
+Save SSH connections	Host, port, user, identity file	P2
+Quick connect	From command palette or sidebar	P2
+Auto profile switching	Color tab by host	P2
+SSH agent integration	Forward agent, key management	P2
+6.3 Inline Widgets
+Feature	Detail	Priority
+Markdown preview	Render .md files inline	P2
+System monitor	CPU/mem mini-graphs in status area	P2
+Git status widget	Branch, changes, ahead/behind	P2
+File preview	Syntax-highlighted on hover/click	P2
+6.4 Triggers & Actions
+Feature	Detail	Priority
+Regex triggers	Match output patterns	P2
+Auto-actions	Notify, highlight, run command	P2
+Profile auto-switch	By hostname, directory, command	P2
+6.5 Extension API
+Feature	Detail	Priority
+QML plugin system	Load custom .qml components	P3
+Event hooks	onCommandStart, onCommandEnd, etc.	P3
+Custom widgets	Third-party status bar items	P3
+Custom context menu items	Extend right-click menu	P3
+6.6 Tier 3 — Additional Libraries
+Component	Library	Rationale
+HTTP client	Qt Network (QNetworkAccessManager)	AI API calls, Ollama
+Keyring	libsecret (via D-Bus)	Secure API key storage
+Markdown	cmark-gfm or md4c	Markdown → HTML for preview
+Syntax highlight	KSyntaxHighlighting	KDE's syntax engine, Qt-native
+System monitor	/proc filesystem parsing	CPU/mem/disk (Linux)
+7. Project Structure
+text
+
+chi-terminal/
+├── CMakeLists.txt                  # Root build
+├── chiterm.toml.default            # Default configuration
+├── README.md
+├── LICENSE
+│
+├── src/
+│   ├── main.cpp                    # Entry point
+│   ├── app/
+│   │   ├── Application.cpp/h       # QGuiApplication setup
+│   │   └── SingleInstance.cpp/h    # Single instance guard
+│   │
+│   ├── terminal/
+│   │   ├── PtyManager.cpp/h        # PTY creation & I/O
+│   │   ├── VtBridge.cpp/h          # VT engine abstraction
+│   │   ├── VtBridgeGhostty.cpp/h   # libghostty-vt backend
+│   │   ├── VtBridgeLibvterm.cpp/h   # libvterm backend
+│   │   ├── ScreenBuffer.cpp/h      # Cell grid + scrollback
+│   │   ├── Cell.h                   # Cell data structure
+│   │   ├── Selection.cpp/h          # Selection model
+│   │   └── SearchEngine.cpp/h       # Scrollback search
+│   │
+│   ├── rendering/
+│   │   ├── TerminalWidget.cpp/h     # QQuickItem for terminal grid
+│   │   ├── GlyphAtlas.cpp/h         # Font texture atlas
+│   │   ├── TerminalNode.cpp/h       # QSGNode subclass
+│   │   └── CursorRenderer.cpp/h     # Cursor drawing
+│   │
+│   ├── session/
+│   │   ├── SessionManager.cpp/h     # Tab/pane lifecycle
+│   │   ├── TerminalSession.cpp/h    # Single terminal session
+│   │   ├── SplitNode.cpp/h          # Split tree structure
+│   │   └── SessionPersistence.cpp/h # Save/restore (Tier 2)
+│   │
+│   ├── config/
+│   │   ├── ConfigManager.cpp/h      # TOML parsing & watching
+│   │   ├── KeybindingManager.cpp/h  # Shortcut handling
+│   │   ├── ColorScheme.cpp/h        # Color scheme loading
+│   │   └── ShellIntegration.cpp/h   # OSC sequence handling
+│   │
+│   ├── context/
+│   │   ├── ContextDetector.cpp/h    # URL, path, IP detection
+│   │   └── ContextMenuBuilder.cpp/h # Smart context menus
+│   │
+│   ├── ai/                          # Tier 3
+│   │   ├── AiBackend.cpp/h
+│   │   ├── OllamaBackend.cpp/h
+│   │   ├── OpenAiBackend.cpp/h
+│   │   └── AnthropicBackend.cpp/h
+│   │
+│   └── platform/
+│       ├── DesktopIntegration.cpp/h  # D-Bus, notifications
+│       ├── GlobalShortcut.cpp/h      # Quake-mode hotkey
+│       └── WaylandHelpers.cpp/h      # Wayland-specific
+│
+├── qml/
+│   ├── Main.qml                     # Root window
+│   ├── TerminalTabBar.qml           # Tab strip
+│   ├── TerminalTab.qml              # Single tab delegate
+│   ├── TerminalPane.qml             # Pane wrapper
+│   ├── SplitView.qml                # Recursive split layout
+│   ├── SplitContainer.qml           # H/V split container
+│   ├── SearchOverlay.qml            # Search bar
+│   ├── TerminalContextMenu.qml      # Right-click menu
+│   ├── TerminalStatusBar.qml        # Bottom bar
+│   ├── CommandPalette.qml           # Ctrl+Shift+P (Tier 2)
+│   ├── SettingsPanel.qml            # Settings UI (Tier 2)
+│   ├── AiPanel.qml                  # AI sidebar (Tier 3)
+│   └── components/
+│       ├── TerminalScrollbar.qml
+│       └── QuakeWindow.qml          # Dropdown (Tier 2)
+│
+├── shell-integration/
+│   ├── bash-integration.sh
+│   ├── zsh-integration.zsh
+│   └── fish-integration.fish
+│
+├── data/
+│   ├── color-schemes/
+│   │   ├── material.toml
+│   │   ├── catppuccin-mocha.toml
+│   │   ├── tokyo-night.toml
+│   │   ├── dracula.toml
+│   │   ├── nord.toml
+│   │   └── gruvbox.toml
+│   └── chiterm.desktop              # XDG desktop entry
+│
+├── tests/
+│   ├── tst_pty.cpp
+│   ├── tst_vtbridge.cpp
+│   ├── tst_screenbuffer.cpp
+│   ├── tst_selection.cpp
+│   ├── tst_search.cpp
+│   ├── tst_config.cpp
+│   ├── tst_keybindings.cpp
+│   └── tst_contextdetector.cpp
+│
+└── third_party/
+    ├── CMakeLists.txt
+    ├── tomlplusplus/               # Header-only, git submodule
+    └── libvterm/                   # git submodule (fallback VT)
+8. Build System
+8.1 CMake Configuration
+cmake
+
+cmake_minimum_required(VERSION 3.19)
+project(chi-terminal VERSION 0.1.0 LANGUAGES CXX C)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+
+# ── Options ──────────────────────────────────────────
+option(CHITERM_USE_GHOSTTY "Use libghostty-vt (requires Zig)" ON)
+option(CHITERM_USE_LIBVTERM "Use libvterm as VT backend" OFF)
+option(CHITERM_ENABLE_AI "Build AI assistant features" OFF)
+option(CHITERM_ENABLE_TESTS "Build tests" ON)
+
+# ── Qt ───────────────────────────────────────────────
+find_package(Qt6 REQUIRED COMPONENTS
+    Core Gui Quick QuickControls2 DBus Network ShaderTools
+)
+
+# ── Chi UI Library ───────────────────────────────────
+# Assumes Chi is installed or available via QML import path
+# set(QML_IMPORT_PATH "${CMAKE_SOURCE_DIR}/../Chi/qml" CACHE STRING "")
+
+# ── Terminal backend ─────────────────────────────────
+if(CHITERM_USE_GHOSTTY)
+    # Build libghostty-vt via Zig
+    include(FetchContent)
+    FetchContent_Declare(ghostty
+        GIT_REPOSITORY https://github.com/ghostty-org/ghostty.git
+        GIT_TAG        main
+        GIT_SHALLOW    TRUE
+    )
+    # Custom build step to invoke zig build for the C static lib
+    # ...
+endif()
+
+if(CHITERM_USE_LIBVTERM)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(VTERM REQUIRED vterm)
+    # or FetchContent from source
+endif()
+
+# ── toml++ ───────────────────────────────────────────
+add_subdirectory(third_party/tomlplusplus EXCLUDE_FROM_ALL)
+
+# ── Main target ──────────────────────────────────────
+add_executable(chiterm
+    src/main.cpp
+    # ... all sources
+)
+
+target_link_libraries(chiterm PRIVATE
+    Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
+    Qt6::DBus Qt6::Network Qt6::ShaderTools
+    tomlplusplus::tomlplusplus
+    ${VTERM_LIBRARIES}      # if using libvterm
+    # ghostty-vt            # if using libghostty
+)
+8.2 Build Profiles
+Profile	Flags	Use Case
+Debug	-O0 -g -fsanitize=address,undefined	Development
+Release	-O2 -DNDEBUG -flto	Distribution
+Profile	-O2 -g -pg	Performance analysis
+RelWithDebInfo	-O2 -g	Debugging release builds
+9. Performance Budget
+Metric	Target	Measurement
+Cold startup to first frame	< 100ms	time chiterm --benchmark
+Warm startup (cached)	< 50ms	Second launch
+cat /dev/urandom throughput	> 500 MB/s	Custom benchmark script
+Input latency (keypress → display)	< 8ms	High-speed camera / TYPOMETER
+Full screen redraw (80x24)	< 1ms	Internal profiling
+Full screen redraw (200x50)	< 3ms	Internal profiling
+Memory (idle, 1 tab)	< 30 MB RSS	ps aux
+Memory (per additional tab)	< 15 MB RSS	Delta measurement
+Scrollback (10K lines, 200 cols)	< 50 MB	smem
+60 FPS during fast scrolling	No drops	QSG_RENDER_TIMING=1
+Config reload	< 50ms	Internal timing
+10. Testing Strategy
+10.1 Unit Tests (Qt Test Framework)
+Module	Test Focus
+tst_pty	Spawn shell, send/receive data, resize, close
+tst_vtbridge	Feed escape sequences, verify cell state
+tst_screenbuffer	Write cells, scrollback, reflow on resize
+tst_selection	Word/line/rect selection, coordinates
+tst_search	Plain text, regex, case sensitivity
+tst_config	Parse valid/invalid TOML, defaults, override
+tst_keybindings	Binding parse, conflict detection, matching
+tst_contextdetector	URL, path, IP, email regex matching
+10.2 Integration Tests
+Test	Description
+vttest	Standard VT100/VT220 compatibility suite
+true-color-test	Verify 24-bit color rendering
+unicode-test	Grapheme clusters, wide chars, combining
+tmux-compat	Full tmux session within Chi Terminal
+neovim-compat	Neovim with Kitty Keyboard Protocol
+lazygit-compat	TUI app rendering correctness
+10.3 Performance Tests
+Test	Description
+bench_throughput	cat large file, measure bytes/sec
+bench_latency	Keypress to screen pixel change
+bench_scrollback	Navigate 100K line scrollback
+bench_startup	Time to first frame
+bench_reflow	Resize during heavy output
+10.4 CI Pipeline
+YAML
+
+# GitHub Actions
+- Build: GCC 13 + Clang 16, Qt 6.5 + Qt 6.7
+- Unit tests: All tst_* with sanitizers (ASan, UBSan)
+- Integration: vttest, basic TUI app smoke tests
+- Performance: Track throughput/latency across commits
+- Lint: clang-tidy, QML linter
+11. Appendices
+A. Tier Summary Matrix
+Feature	Tier	Library/Dep	Effort Est.
+VT emulation	T1	libghostty-vt / libvterm	3 weeks
+PTY management	T1	POSIX, custom C++	1 week
+GPU terminal rendering	T1	Qt Scene Graph, custom	4 weeks
+Glyph atlas	T1	Qt + FreeType	2 weeks
+Tabs	T1	Chi Tabs/IconButton	1 week
+Split panes	T1	Custom QML + C++ tree	2 weeks
+Search	T1	QRegularExpression	1 week
+Copy/paste/selection	T1	Custom C++	1.5 weeks
+Context menu	T1	Chi Menu/ContextMenu	1 week
+Keyboard system	T1	Custom C++	1 week
+Config (TOML)	T1	toml++	1 week
+Shell integration	T1	OSC parsing, scripts	1 week
+Color schemes	T1	Custom + ChiTheme	1 week
+Status bar	T1	Chi components	0.5 weeks
+Clickable elements	T1	Regex + custom	1 week
+Tier 1 Total			~22 weeks
+Block-based output	T2	OSC 133 + custom	3 weeks
+Command palette	T2	Chi Dialog/SearchBar	1.5 weeks
+Session persistence	T2	QJsonDocument	2 weeks
+Workspaces	T2	Custom C++	1.5 weeks
+Quake dropdown	T2	Qt + D-Bus	1.5 weeks
+Desktop notifications	T2	Qt D-Bus	0.5 weeks
+Image protocol	T2	Custom (Kitty+Sixel)	3 weeks
+Tab enhancements	T2	Chi + custom	1.5 weeks
+Cross-tab search	T2	Custom C++	1 week
+Smart selection	T2	Regex patterns	1 week
+Settings GUI	T2	Full Chi components	2 weeks
+Tier 2 Total			~19 weeks
+AI assistant panel	T3	Qt Network + Chi	4 weeks
+SSH bookmark manager	T3	Custom + Chi	2 weeks
+Inline widgets	T3	cmark-gfm + custom	3 weeks
+Triggers & actions	T3	Custom engine	2 weeks
+Extension API	T3	QML plugin loader	4 weeks
+Tier 3 Total			~15 weeks
+B. Key Technical Decisions Log
+Decision	Choice	Alternatives Considered	Rationale
+VT backend	libghostty-vt + libvterm fallback	QTermWidget, VTE, custom	Best-in-class quality, C API, zero deps, proven by Ghostty
+Config format	TOML (toml++)	YAML, JSON, INI, KConfig	Human-readable, typed, industry trend (Cargo, Ghostty, etc.)
+UI framework	QML + Chi	Qt Widgets, GTK4	Required by spec (Chi library), declarative, GPU-friendly
+Rendering	QQuickItem + Scene Graph	QPainter, raw OpenGL	Qt-integrated GPU rendering, correct in both X11/Wayland
+No Electron	—	Electron + xterm.js	Performance, memory, native feel
+No custom shell	User's $SHELL	Custom prompt	Never override user's environment
+C. Reference Terminals Studied
+Terminal	Key Takeaway for Chi Terminal
+Ghostty	Zero-config philosophy; libghostty-vt as embeddable core
+Warp	Block-based output; AI integration patterns
+Wave	Widget system; privacy-respecting AI with user API keys
+Kitty	Graphics protocol (de facto standard); performance bar
+WezTerm	Lua extensibility; cross-platform config
+Alacritty	Performance benchmark; simplicity philosophy
+iTerm2	Smart selection; shell integration depth; triggers
+Windows Terminal	Settings UI patterns; profile system
+D. Glossary
+Term	Definition
+PTY	Pseudoterminal — OS-level pair of file descriptors (master/slave)
+VT	Virtual Terminal — escape sequence protocol (VT100/VT220/xterm)
+OSC	Operating System Command — escape sequences for metadata
+SGR	Select Graphic Rendition — escape sequences for text styling
+DCS	Device Control String — escape sequence category
+Scene Graph	Qt Quick's retained-mode rendering tree (GPU-backed)
+Glyph Atlas	Single texture containing all rendered font glyphs
+Scrollback	Buffer of lines that have scrolled off the visible area
+Block	Grouped command + output treated as a single object
+Shell Integration	Scripts that emit OSC sequences from the shell prompt
+This specification is a living document. Update as decisions are made and implementation reveals new requirements.
+
+Last updated: March 2026
+
+text
+
+
+---
+
+This spec gives you a complete, implementation-ready blueprint. The key architectural bets are:
+
+1. <!--citation:24-->**libghostty-vt** as the primary VT engine — an embeddable library extracted from Ghostty's core, exposing a C and Zig API, handling VT sequence parsing, terminal state management (cursor position, styles, text reflow, scrollback), and renderer state management. The core logic inherits SIMD-optimized parsing, leading Unicode support, highly optimized memory usage, and a robust fuzzed and tested codebase, proven by millions of daily active users of Ghostty.
+
+2. <!--citation:41-->The C API is work-in-progress, but dozens of projects both free and commercial are already using libghostty. <!--citation:12-->**libvterm** (Leonerd's) serves as the fallback — an abstract C99 library implementing VT220/xterm emulation that uses callback function pointers and avoids calling malloc() during normal running state.
+
+3. **toml++** for configuration — MIT-licensed, header-only, battle-tested.
+
+4. **Qt Scene Graph** for GPU rendering instead of individual QML Text elements — this is what makes the difference between a toy and a daily driver.
+
+Shall I begin implementing any specific module?
+
+
+
+
+okay beautiful, now create a spec file with your search results and recommendations, which lists requirements for the 3 tiers, starting with development of tier one, focus on perfomance and code quality and use the best libraries for other features instead of reinverting the wheel from scratch. just a nice file with what you have told me but with more details on the stack and requirements of each tier.
+
+claude-opus-4-6-search
+
+Sources
+
+
+
+
+
+
+preview
+
+
+
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+preview
+
+
+
+
+
+
+preview
+
+
+
+
+
+
+Comprehensive Research: What Makes a Modern Terminal Tick
+Based on extensive research across the current terminal emulator landscape (Ghostty, Warp, Wave, Kitty, WezTerm, iTerm2, Alacritty, and others), here is a deeply detailed feature analysis and design blueprint for building a powerful, minimal, modern terminal with your Chi UI library.
+
+1. The Philosophy: What Users Actually Want
+6
+ The configuration should be optional, yet extensive. A zero-configuration philosophy means it's designed to work out of the box with no configuration necessary for most users. This is the single most important lesson from Ghostty's meteoric rise. 
+23
+ UIs that are pretty and friendly are nice to have, but the true values of a good interface should be speed and efficiency to make their users as productive as possible.
+The modern terminal user falls into two camps:
+
+16
+ Some live and breathe the terminal, meticulously customizing their fonts, writing intricate scripts, and preferring to avoid graphical interfaces altogether. Others are more at home in IDEs and GUI applications, only venturing into the terminal when absolutely necessary.
+Our target: Build for both. Zero-config defaults that satisfy power users, with progressive disclosure for customization.
+
+2. Core Architecture Principles
+2.1 Performance is Non-Negotiable
+7
+ The modern terminal emulator has evolved dramatically. We now have GPU-accelerated rendering, AI command assistance, collaborative features, and customization options that would have seemed like sci-fi a few years ago. The right terminal can genuinely speed up your workflow. 
+9
+ GPU acceleration represents a paradigm shift in terminal emulator performance. By leveraging your graphics card for rendering text, these terminals can handle massive outputs, smooth scrolling, and multiple simultaneous sessions without lag.
+Design decision for Chi Terminal: Use Qt's Scene Graph / RHI backend for GPU-accelerated text rendering. The terminal grid should be rendered as a texture atlas, not individual Text elements.
+
+2.2 Native Feel Over Cross-Platform Sameness
+7
+ Ghostty is fully open source and aims to be fast, native, and feature-complete without sacrificing either performance or functionality. What makes Ghostty interesting is its commitment to being a "native" app on each platform—it uses platform-native UI components rather than drawing everything itself.
+2.3 Privacy-First, Local-First
+18
+ Ghostty is local-first. It doesn't have an account system, it doesn't send telemetry about your usage, and your commands never leave your machine. It offers a rich, modern terminal experience without compromising on privacy.
+This is a key differentiator. 
+18
+To enable cloud-powered features, Warp requires users to create an account and log in. For some developers, this is a significant privacy concern. The idea of your command history and terminal activity being processed through a third-party service is a non-starter.
+
+3. Block-Based Output: The Paradigm Shift
+This is arguably the most important modern innovation. 
+36
+Warp originated the terminal Block, grouping input and output together for easier navigation. Blocks allow you to search within specific commands and output, filter down, and even share outputs with teammates.
+
+13
+ Warp is radically different. It treats input and output as distinct blocks, which feels more like a text editor or IDE. 
+40
+ Both terminal applications are block-based, which means each command and its output are treated as separate objects.
+What Blocks Enable:
+Per-command search — Find text within a specific command's output, not the entire scrollback
+Block-level actions — Copy entire output, share, bookmark, re-run
+Timestamp metadata — When was this command run? How long did it take?
+Collapse/expand — Hide verbose output of completed commands
+Filtering — 
+40
+Users can filter command outputs using regular expressions and share code blocks with built-in secret masking.
+Implementation Strategy for Chi Terminal:
+text
+
+┌─────────────────────────────────────┐
+│ $ git status                    2.3s │  ← Block header (command + duration)
+│─────────────────────────────────────│
+│ On branch main                      │
+│ Changes not staged for commit:      │  ← Block body (collapsible)
+│   modified: src/main.cpp            │
+│                                     │
+│ ⋯ [Copy] [Rerun] [⋮]             │  ← Block actions (on hover)
+└─────────────────────────────────────┘
+4. Tab & Pane Management: Minimizing Splitter Bloat
+4.1 The Problem with Traditional Splits
+43
+ Modern developers, system administrators, and terminal enthusiasts seek tools that can handle multiple workflows efficiently. Traditional terminals often struggle with scaling productivity, especially when managing numerous sessions simultaneously. This limitation drives the adoption of advanced terminal emulators. 
+45
+ Due to the nature of Windows Terminal, it's easy to accumulate on-screen clutter. The numerous windows and lines of code can quickly fill the screen and confuse users. As such, every user should know how to properly manage panes.
+4.2 Smart Layout System (No Manual Splitter Dragging)
+Instead of arbitrary drag-to-resize splitters, use predefined intelligent layouts:
+
+text
+
+┌──────────┐  ┌─────┬─────┐  ┌─────┬─────┐  ┌─────┬──────┐
+│          │  │     │     │  │     │     │  │     │      │
+│  Single  │  │  L  │  R  │  │  T  │  B  │  │  L  ├──────┤
+│          │  │     │     │  │─────┤     │  │     │      │
+└──────────┘  └─────┴─────┘  │     │     │  └─────┴──────┘
+                              └─────┴─────┘
+  Layout 1      Layout 2      Layout 3       Layout 4
+Key innovations:
+
+Zen-mode toggle: 
+32
+Quick full-screen toggle for any block - expand terminals, editors, and previews for better visibility, then instantly return to multi-block view.
+Keyboard-driven navigation: 
+35
+Vim-Style Block Navigation — Added Ctrl+Shift+H/J/K/L to navigate between blocks.
+Auto-layout intelligence: When you split, the terminal chooses horizontal or vertical based on the current aspect ratio
+Pane isolation: 
+45
+You can close, open, or resize one pane without affecting the others because each pane operates independently.
+4.3 Tab Design
+11
+ You can't change the color of a tab in Ghostty, which is a strong way to differentiate the process going on it. Tab coloring is essential. 
+46
+ Automatically switch terminal appearance based on hostname, username, directory, or running command. SSH to a production server? Background turns red. Switch to root user? Font color changes. Different environments get different visual contexts, reducing the risk of accidental operations.
+Modern tab features:
+
+Color-coded tabs by context (local=neutral, SSH=colored, root=danger)
+Tab title from shell integration (show CWD, running command, hostname)
+Tab drag-to-reorder and drag-to-pane (drag a tab into a split)
+Tab close confirmation: 
+35
+New tab:confirmclose setting to prompt before closing a tab.
+Tab previews on hover (thumbnail of terminal content)
+Pin tabs for persistent sessions
+4.4 Minimizing Need for tmux
+47
+ tmux is not just a pane splitter; it's a session manager that solves problems terminal emulators' splits don't. If you rely only on your terminal's split feature you get some convenience, but you miss several layers of durability, flexibility, automation and collaboration.
+To reduce tmux dependency, build in:
+
+Session persistence: 
+48
+Saves open windows, tabs, pane layouts, and working directories on clean exit. Restores full session on next launch including split pane trees with ratios.
+Named workspaces: 
+35
+Workspaces: Organize your work into separate environments, each with their own tabs, layouts, and settings.
+Durable SSH sessions: 
+32
+Durable SSH sessions that survive network interruptions and restarts, with automatic reconnection.
+But still respect tmux users: 
+47
+Terminal splits are a UI convenience; tmux is a portability, durability and automation layer. Use both: split visually when convenient, rely on tmux for resilience and orchestration.
+
+5. Context Menus & Right-Click Intelligence
+5.1 Smart Context Menus
+Context menus should be context-aware, not static. The right-click menu should change based on what's under the cursor:
+
+Context	Menu Items
+Selected text	Copy, Search Web, Explain (AI), Paste
+File path	Open File, Open in Editor, Copy Path, ls -la
+URL	Open in Browser, Copy URL
+IP/Hostname	SSH to Host, Ping, Copy
+Error text	Explain Error (AI), Search Stack Overflow, Copy
+Command block	Re-run Command, Copy Output, Bookmark, Share
+Empty area	Paste, Clear, Split Pane, New Tab
+50
+ Performing a quad-click does a "smart selection," which selects text under the pointer in a way appropriate to its content. For example, URLs, quoted strings, and email addresses are recognized and selected in their entirety. You can also bind actions to a smart selection rule. The first action takes effect when you cmd-click on text matching the rule. All actions are added to the context menu when you right click on text matching the rule.
+5.2 Clickable Elements in Terminal
+File paths → click to open, Ctrl+click to reveal in file manager
+URLs → click to open in browser
+Error codes → click to search documentation
+Git branch names → click to switch
+IP addresses → click to SSH
+6. AI Integration: The New Essential
+34
+ AI-powered terminals change how we work by embedding assistants directly into the command line. Instead of Googling obscure flags or error messages, developers can ask for help inside the terminal itself — getting command suggestions, error explanations, and even code generation without switching context.
+6.1 AI Features to Implement
+14
+ Warp Terminal's AI-driven features help you find commands, understand errors, and autocomplete code—right in your terminal.
+Core AI features:
+
+Natural language → command translation: "find all .cpp files modified in last week" → find . -name "*.cpp" -mtime -7
+Error explanation: Select an error, get a plain-English explanation
+Command suggestion: Start typing and get contextual completions
+Context-aware assistance: 
+32
+AI chat widget with support for multiple models (OpenAI, Claude, Azure, Perplexity, Ollama).
+Terminal context reading: 
+38
+Context-aware terminal assistant with access to terminal output, widgets, and filesystem.
+6.2 Privacy-Respecting AI
+34
+ Wave lets you use your own API keys or even fully local models, and doesn't require signing up for any cloud service.
+Design principles:
+
+Support local models (Ollama, llama.cpp) as first-class citizens
+Support cloud providers (OpenAI, Claude) as optional
+Never send terminal content to cloud without explicit user action
+AI sidebar panel, not inline (keeps terminal output clean)
+6.3 AI Panel Design (Chi Component)
+text
+
+┌──────────────────────┬───────────────┐
+│                      │  AI Assistant  │
+│  Terminal Content    │───────────────│
+│                      │ "How do I find │
+│  $ find . -name...  │  large files?" │
+│                      │               │
+│                      │ > Try:        │
+│                      │ find / -size  │
+│                      │   +100M       │
+│                      │  [Insert] [Copy]│
+└──────────────────────┴───────────────┘
+7. Modern TUI Support
+21
+ TUIs or terminal user interfaces are a little different from CLIs. TUIs are still executed and used in the terminal, but they typically consist of a more full-fledged text-based interface. Rather than typing a command and seeing a result like with CLIs, using a TUI will land you in a new "interface" for that particular tool. This allows the tool to situate itself in purpose-fit layouts and controls for the job.
+Modern TUI requirements:
+
+True color (24-bit) support — essential for modern TUIs (lazygit, btop, etc.)
+Font ligatures — 
+2
+Font ligature support.
+Unicode & emoji — 
+2
+Complex Unicode support, including emojis.
+Sixel/Kitty graphics protocol — 
+10
+Kitty can display images directly in the terminal via its graphics protocol.
+Hyperlink support (OSC 8) — clickable links emitted by CLI tools
+Undercurl, strikethrough, colored underlines — for tools like Neovim
+Synchronized rendering (DEC mode 2026) — prevents tearing during rapid TUI updates
+Bracketed paste — prevents pasted code from being interpreted as commands
+8. Desktop Integration
+8.1 System Integration
+Drop-down/Quake-style mode: 
+17
+Global quick terminal toggle for a system-wide dropdown terminal. A global hotkey that slides the terminal down from the top of the screen.
+Desktop notifications: 
+11
+Warp gave us a notification for long-running commands (processes). Notify when a long-running command completes.
+File manager integration: Drag files into terminal to paste paths
+System clipboard: 
+4
+Windows Terminal uses Ctrl+C to abort the current process when nothing is selected, but copies when there is a selection. Similarly, Ctrl+V just pastes. Smart Ctrl+C behavior.
+XDG compliance: Respect $XDG_CONFIG_HOME, $XDG_DATA_HOME
+D-Bus integration: For Linux desktop environments
+Wayland-native: First-class Wayland support (not X11-through-XWayland)
+8.2 Shell Integration
+46
+ After installing Shell Integration, iTerm2 knows your command history, current directory, hostname, and username. This unlocks a series of practical features: Jump to previous/next command prompts.
+Shell integration powers:
+
+Automatic CWD tracking per pane
+Command duration timing
+Exit code indicators (✓ green / ✗ red)
+Block detection (knowing where commands start/end)
+Command-level bookmarking
+9. Search & Navigation
+46
+ Cmd+Shift+O opens global search across all sessions by tab title, command, hostname, directory, or badge. Instantly locate any session regardless of how many you have open.
+9.1 Multi-Level Search
+In-block search: Search within a single command's output
+In-tab search: Regex search through current scrollback
+Cross-tab search: Find text across all open sessions
+Command palette: Fuzzy-finder for all terminal actions (like VS Code's Ctrl+Shift+P)
+9.2 Command Palette (Critical Feature)
+A unified command palette that handles:
+
+Terminal actions (new tab, split, clear)
+Theme switching
+SSH connection bookmarks
+Recent commands
+Open workspaces
+Settings access
+10. Customization & Theming
+9
+ File-Based Configuration (Alacritty, Kitty, WezTerm): These terminals use configuration files, allowing version control and easy backup. This approach requires learning the configuration syntax but offers programmatic customization.
+10.1 Theme System
+17
+ 4 Presets: Cyberpunk Dev, Minimal Focus, Cozy Coding, Professional Elegant. 5 Themes: Tokyo Night, Catppuccin Mocha, Dracula, Nord, Gruvbox. 5 Fonts: JetBrains Mono, Fira Code, Cascadia Code, Iosevka, Monaspace Neon.
+Our Chi-based terminal inherits Material 3 theming automatically, which is a unique advantage. Terminal color schemes map to ChiTheme.colors:
+
+Terminal Color	ChiTheme Token
+Background	surfaceContainerLowest
+Foreground	onSurface
+Selection BG	primaryContainer
+Selection FG	onPrimaryContainer
+Cursor	primary
+Error/Red	error
+URL underline	tertiary
+Plus support for importing standard terminal color schemes (iTerm2, Xresources, TOML formats).
+
+10.2 Configuration Approach
+GUI settings panel for common options (built with Chi components)
+File-based config (TOML) for power users and version control
+Live reload of configuration without restart
+11. Inline Widgets & Rich Content
+2
+ Wave is an open-source cross-platform terminal emulator, that offers several unique features like graphical widgets. 
+32
+ Edit remote files with a built-in graphical editor and preview files inline without leaving the terminal. Rich file preview system for remote files (markdown, images, video, PDFs, CSVs, directories).
+Widget concepts for Chi Terminal:
+
+Image preview: Display images inline (via Kitty/Sixel protocol)
+Markdown rendering: Render .md files beautifully inline
+File previews: Syntax-highlighted file content on hover/click
+System monitor widget: CPU/memory mini-graphs
+Git status widget: Branch, changed files, ahead/behind counts
+31
+ Wave ships with 5 default widgets in the widgets bar (terminal, files, web, ai, and sysinfo).
+12. Keyboard-First Design
+Every feature must be keyboard-accessible. Key binding philosophy:
+
+12.1 Default Keybindings
+text
+
+Ctrl+Shift+T      → New tab
+Ctrl+Shift+W      → Close tab
+Ctrl+Tab           → Next tab  
+Ctrl+Shift+Tab     → Previous tab
+Ctrl+Shift+D       → Split vertical
+Ctrl+Shift+E       → Split horizontal
+Ctrl+Shift+F       → Search in tab
+Ctrl+Shift+P       → Command palette
+Ctrl+Shift+,       → Settings
+Alt+1-9            → Switch to tab N
+Ctrl+Shift+H/J/K/L → Navigate panes (vim-style)
+Ctrl+Shift+Enter   → Maximize/restore pane
+F11                → Fullscreen
+Ctrl+Shift+Space   → AI assistant toggle
+Ctrl+Shift+`       → Quake-mode dropdown
+12.2 Customizable Keybindings
+Full rebinding support with conflict detection.
+
+13. Complete Feature Matrix for Chi Terminal
+Tier 1: Core (MVP)
+Feature	Priority	Notes
+VTE-compatible terminal emulation	P0	xterm-256color + truecolor
+Tabs	P0	With drag reorder
+Split panes (H/V)	P0	Keyboard-driven
+Search	P0	Regex, in-tab
+Copy/Paste	P0	Smart Ctrl+C
+Font configuration	P0	Ligature support
+Color schemes	P0	Chi theme integration
+Shell integration	P0	CWD, command timing
+Scrollback buffer	P0	Configurable size
+Unicode/Emoji	P0	Full grapheme cluster
+Context menu	P0	Smart, context-aware
+Clickable URLs	P0	OSC 8 hyperlinks
+Keyboard shortcuts	P0	Fully customizable
+Tier 2: Power Features
+Feature	Priority	Notes
+Block-based output	P1	Command grouping
+Command palette	P1	Fuzzy finder
+Session persistence	P1	Save/restore layouts
+Workspaces	P1	Named environments
+Quake-mode dropdown	P1	Global hotkey
+Image protocol	P1	Kitty + Sixel
+Notification on completion	P1	Desktop notification
+Predefined layouts	P1	1-up, 2-col, etc.
+Tab color coding	P1	Auto by context
+Cross-tab search	P1	Global find
+Smart selection	P1	URLs, paths, IPs
+Settings GUI	P1	Built with Chi
+Tier 3: Advanced
+Feature	Priority	Notes
+AI assistant panel	P2	Local + cloud models
+SSH bookmark manager	P2	Quick connect
+File preview widgets	P2	Inline markdown/images
+System monitor widget	P2	CPU/mem mini-graphs
+Synchronized input	P2	Type in all panes
+Triggers/Actions	P2	Regex → action
+Text snippets	P2	Variable substitution
+Profile auto-switching	P2	By host/dir
+Inline editor	P2	Quick file editing
+Plugin/extension API	P2	For community
+14. Chi-Specific UI Architecture
+Here's how the terminal maps to your Chi components:
+
+qml
+
+ChiApplicationWindow {
+    // No TopAppBar — terminal maximizes screen real estate
+    // Tab bar IS the top bar
+    
+    Column {
+        // Tab Bar (custom thin component)
+        TerminalTabBar { /* tabs + new tab + menu */ }
+        
+        // Main content area
+        TerminalPaneContainer {
+            // Recursive split tree
+            TerminalPane { /* VTE widget */ }
+        }
+        
+        // Optional: Status bar at bottom
+        TerminalStatusBar { /* CWD, git branch, time */ }
+    }
+    
+    // Overlays
+    CommandPalette { /* Ctrl+Shift+P */ }
+    SearchOverlay { /* Ctrl+Shift+F */ }
+    
+    // Side panels (slide in)
+    SideSheet { /* AI Assistant */ }
+    SideSheet { /* Settings */ }
+    SideSheet { /* SSH Manager */ }
+}
+Key Chi Components Used:
+Tabs → Terminal tab bar
+Menu/ContextMenu → Right-click menus
+TextField → Search bar, command palette input
+Card → Settings panels, AI chat bubbles
+IconButton → Toolbar actions
+SideSheet → AI panel, settings
+Dialog → Confirmations, connection dialogs
+Snackbar → Notifications ("Command completed")
+Chip → Tags for sessions, SSH bookmarks
+Switch → Settings toggles
+Slider → Opacity, font size
+SegmentedButton → Layout selector
+SearchBar → Command palette
+15. What NOT to Build (Anti-Patterns)
+23
+ Contrary to any "modern" interfaces, a terminal is fast and responsive. There are no animations or other superfluous visual baggage.
+❌ Heavy animations on terminal content (Chi motion tokens are for UI chrome only)
+❌ Mandatory cloud accounts
+❌ Electron/web-tech rendering for the terminal grid
+❌ Arbitrary splitter dragging (use smart layouts instead)
+❌ Feature overload at launch — progressive disclosure
+❌ Built-in file editor trying to compete with vim/nano (just preview)
+❌ Custom shell — always use the user's shell
+16. Summary: Design Pillars
+Fast by default — GPU-rendered grid, instant startup, no lag
+Zero-config beauty — Chi Material 3 theming out of the box
+Block-based intelligence — Commands are first-class objects
+Keyboard-sovereign — Everything accessible without mouse
+Context-aware menus — Right-click shows relevant actions
+Smart layouts, not splitters — Predefined + zen-mode toggle
+AI-ready, privacy-first — Local models first, cloud optional
+Session durability — Never lose your workspace
+Desktop citizen — Notifications, quake-mode, file drag
+Progressive disclosure — Simple surface, deep power underneath
+This gives us a terminal that's as clean as Ghostty, as smart as Warp, as flexible as Wave, and as beautiful as nothing else — because it's the only one built on Material 3 Expressive design tokens.
+
+Shall I proceed to the actual implementation architecture and start building the QML components?
+
+
+
+
+
+I want us to buuild a modern qml based terminal using my qml based ui library (# Chi UI Library - LLM Context File
+
+This file provides comprehensive context for AI assistants working with the Chi UI library.
+
+Overview
+Chi is a Material 3 Expressive UI library for Qt/QML applications targeting Unix-based desktop systems. It provides production-ready components with automatic theme management, accessibility support, and desktop-optimized sizing.
+
+Import Statement:
+
+qml
+
+import Chi 1.0
+Architecture
+Core Design Philosophy
+Desktop-first: Components use desktop-optimized sizes and interaction patterns
+Zero-configuration: Import and use - sensible defaults for 90% of use cases
+Theme-driven: All colors, typography, and motion use ChiTheme tokens
+Dieter Rams principles: Less but better - no unnecessary complexity
+Theme System
+Chi uses a singleton ChiTheme that provides:
+
+qml
+
+ChiTheme {
+    // Theme state (synced with C++ backend)
+    property bool isDarkMode: true
+    property color primaryColor: "#673AB7"  // seed color
+    
+    // Functions
+    function setDarkMode(dark)
+    function setPrimaryColor(color)
+    function toggleDarkMode()
+    
+    // Color tokens (Material 3)
+    property var colors: {
+        primary, onPrimary, primaryContainer, onPrimaryContainer,
+        secondary, onSecondary, secondaryContainer, onSecondaryContainer,
+        tertiary, onTertiary, tertiaryContainer, onTertiaryContainer,
+        error, onError, errorContainer, onErrorContainer,
+        background, onBackground, surface, onSurface,
+        surfaceVariant, onSurfaceVariant,
+        surfaceContainerLowest, surfaceContainerLow, surfaceContainer,
+        surfaceContainerHigh, surfaceContainerHighest,
+        outline, outlineVariant, shadow, scrim, surfaceTint,
+        inverseSurface, inverseOnSurface, inversePrimary
+    }
+    
+    // Typography tokens
+    property var typography: {
+        displayLarge:   { family, size: 57, weight: 400, spacing: -0.25, lineHeight: 64 },
+        displayMedium:  { family, size: 45, weight: 400, spacing: 0,     lineHeight: 52 },
+        displaySmall:   { family, size: 36, weight: 400, spacing: 0,     lineHeight: 44 },
+        headlineLarge:  { family, size: 32, weight: 400, spacing: 0,     lineHeight: 40 },
+        headlineMedium: { family, size: 28, weight: 400, spacing: 0,     lineHeight: 36 },
+        headlineSmall:  { family, size: 24, weight: 400, spacing: 0,     lineHeight: 32 },
+        titleLarge:     { family, size: 22, weight: 400, spacing: 0,     lineHeight: 28 },
+        titleMedium:    { family, size: 16, weight: 500, spacing: 0.15,  lineHeight: 24 },
+        titleSmall:     { family, size: 14, weight: 500, spacing: 0.1,   lineHeight: 20 },
+        bodyLarge:      { family, size: 16, weight: 400, spacing: 0.5,   lineHeight: 24 },
+        bodyMedium:     { family, size: 14, weight: 400, spacing: 0.25,  lineHeight: 20 },
+        bodySmall:      { family, size: 12, weight: 400, spacing: 0.4,   lineHeight: 16 },
+        labelLarge:     { family, size: 14, weight: 500, spacing: 0.1,   lineHeight: 20 },
+        labelMedium:    { family, size: 12, weight: 500, spacing: 0.5,   lineHeight: 16 },
+        labelSmall:     { family, size: 11, weight: 500, spacing: 0.5,   lineHeight: 16 }
+    }
+    
+    // Motion tokens
+    property var motion: {
+        durationFast: 100,
+        durationMedium: 250,
+        durationSlow: 350,
+        durationExpressive: 600,
+        easeStandard: Easing.OutCubic,
+        easeEmphasized: Easing.OutQuart
+    }
+}
+Component Catalog
+Buttons
+Button
+qml
+
+Button {
+    text: "Click Me"
+    variant: "filled"      // filled | elevated | tonal | outlined | text
+    size: "medium"         // xsmall | small | medium | large | xlarge
+    shape: "round"         // round | square
+    showIcon: false
+    icon: "add"            // Material icon name or image path
+    enabled: true
+    loading: false
+    
+    onClicked: { /* handle */ }
+}
+Sizes:
+
+xsmall: 24px height - inline actions, dense toolbars
+small: 28px height - secondary actions, table rows
+medium: 34px height - default, most UI
+large: 40px height - primary CTAs, dialogs
+xlarge: 48px height - hero actions
+IconButton
+qml
+
+IconButton {
+    icon: "settings"
+    variant: "filled"      // filled | tonal | outlined | standard
+    size: "small"          // xsmall | small | medium | large | xlarge
+    widthMode: "default"   // narrow | default | wide
+    shape: "round"         // round | square
+    enabled: true
+    tooltip: ""
+    iconFont: ""           // optional custom icon font
+    
+    onClicked: { /* handle */ }
+}
+IconButtonToggle
+qml
+
+IconButtonToggle {
+    icon: "favorite"
+    checkedIcon: "favorite_border"
+    checked: false
+    variant: "filled"
+    size: "small"
+    
+    onToggled: { checked = !checked }
+}
+ToggleButton
+qml
+
+ToggleButton {
+    text: "Toggle"
+    checked: false
+    variant: "filled"
+    size: "medium"
+    
+    onToggled: { /* handle */ }
+}
+SplitButton
+qml
+
+SplitButton {
+    text: "Save"
+    icon: "save"
+    variant: "filled"
+    size: "medium"
+    
+    onMainClicked: { /* primary action */ }
+    onMenuClicked: { /* show dropdown */ }
+}
+ButtonGroup
+qml
+
+ButtonGroup {
+    spacing: 8
+    
+    Button { text: "Left" }
+    Button { text: "Center" }
+    Button { text: "Right" }
+}
+ConnectedButtonGroup
+qml
+
+ConnectedButtonGroup {
+    Button { text: "Option 1"; variant: "outlined" }
+    Button { text: "Option 2"; variant: "outlined" }
+    Button { text: "Option 3"; variant: "outlined" }
+}
+FAB (Floating Action Button)
+FAB
+qml
+
+FAB {
+    icon: "add"
+    variant: "primary"     // primary | secondary | tertiary | surface
+    enabled: true
+    menuOpen: false        // rotates icon 45° when true
+    
+    onClicked: { /* handle */ }
+}
+FABMenu
+qml
+
+FABMenu {
+    fabIcon: "add"
+    open: false
+    
+    FABMenuItem { icon: "edit"; text: "Edit"; onClicked: {} }
+    FABMenuItem { icon: "share"; text: "Share"; onClicked: {} }
+}
+Text Input
+TextField
+qml
+
+TextField {
+    text: ""
+    placeholderText: "Enter text..."
+    label: "Email"
+    supportingText: "We'll never share your email"
+    errorText: "Invalid email"
+    variant: "filled"      // filled | outlined
+    size: "medium"         // small | medium | large
+    shape: "default"       // default | rounded
+    enabled: true
+    error: false
+    readOnly: false
+    password: false
+    showPasswordToggle: false
+    showCharacterCount: false
+    maxLength: -1
+    leadingIcon: ""
+    trailingIcon: ""
+    inputMethodHints: Qt.ImhNone
+    
+    // Context menu
+    enableContextMenu: true
+    showCut: true
+    showCopy: true
+    showPaste: true
+    showSelectAll: true
+    
+    signal accepted()
+    signal editingFinished()
+    signal trailingIconClicked()
+    signal leadingIconClicked()
+    
+    function clear()
+    function selectAll()
+    function forceActiveFocus()
+}
+NumberField
+qml
+
+NumberField {
+    value: 0
+    min: 0
+    max: 100
+    step: 1
+    
+    onValueChanged: { /* handle */ }
+}
+Stepper
+qml
+
+Stepper {
+    value: 1
+    min: 1
+    max: 10
+    step: 1
+    size: "medium"
+    
+    onChanged: { /* handle */ }
+}
+Selection Controls
+Checkbox
+qml
+
+Checkbox {
+    checked: false
+    indeterminate: false
+    label: "Accept terms"
+    enabled: true
+    size: "medium"         // small | medium | large
+    
+    onToggled: { /* handle */ }
+}
+RadioButton
+qml
+
+RadioButton {
+    checked: false
+    label: "Option A"
+    enabled: true
+    size: "medium"
+    
+    onToggled: { /* handle */ }
+}
+RadioGroup
+qml
+
+RadioGroup {
+    selectedIndex: 0
+    
+    RadioButton { text: "Option A" }
+    RadioButton { text: "Option B" }
+    RadioButton { text: "Option C" }
+    
+    onSelectedIndexChanged: { /* handle */ }
+}
+Switch
+qml
+
+Switch {
+    checked: false
+    enabled: true
+    showIcon: false
+    icon: "✓"
+    size: "medium"         // small | medium | large
+    
+    onToggled: { /* handle */ }
+}
+Slider
+qml
+
+Slider {
+    value: 0.5
+    from: 0.0
+    to: 1.0
+    stepSize: 0.0
+    size: "medium"         // small | medium | large
+    showValue: false
+    discrete: false        // shows tick marks
+    tickCount: 5
+    enabled: true
+    
+    onMoved: { /* handle */ }
+    onPressedChanged: { /* handle */ }
+}
+SegmentedButton
+qml
+
+SegmentedButton {
+    selectedIndex: 0
+    segments: [
+        { text: "Day", icon: "calendar_today" },
+        { text: "Week", icon: "date_range" },
+        { text: "Month", icon: "event" }
+    ]
+    multiSelect: false
+    selectedIndices: [0]
+    size: "medium"
+    enabled: true
+    
+    onSelectionChanged: function(indices) { /* handle */ }
+}
+Navigation
+NavigationBar
+qml
+
+NavigationBar {
+    currentIndex: 0
+    showLabels: true
+    enabled: true
+    
+    NavigationBarItem { icon: "home"; label: "Home" }
+    NavigationBarItem { icon: "search"; label: "Search" }
+    NavigationBarItem { icon: "settings"; label: "Settings" }
+    
+    onItemClicked: function(index) { /* handle */ }
+}
+NavigationRail
+qml
+
+NavigationRail {
+    variant: "rail"        // rail | expanded
+    alignment: "top"       // top | middle | bottom
+    selectedIndex: 0
+    showMenuButton: true
+    menuIcon: "menu"
+    showFab: true
+    fabIcon: "add"
+    fabText: "New"
+    enabled: true
+    
+    items: ListModel {
+        ListElement { icon: "home"; label: "Home"; activeIcon: "home_filled" }
+        ListElement { icon: "search"; label: "Search" }
+    }
+    
+    onItemClicked: function(index) { /* handle */ }
+    onFabClicked: { /* handle */ }
+    onMenuClicked: { /* handle */ }
+}
+NavigationDrawer
+qml
+
+NavigationDrawer {
+    open: false
+    modal: true
+    
+    NavigationDrawerItem { icon: "home"; text: "Home" }
+    NavigationDrawerDivider {}
+    NavigationDrawerItem { icon: "settings"; text: "Settings" }
+    
+    onClosed: { /* handle */ }
+}
+TopAppBar
+qml
+
+TopAppBar {
+    title: "App Title"
+    subtitle: "Subtitle"
+    variant: "small"       // small | center | medium | large
+    navigationIcon: "←"
+    showNavigation: true
+    elevated: false
+    scrollOffset: 0
+    
+    // Actions via alias
+    TopAppBarAction { icon: "search"; onClicked: {} }
+    TopAppBarAction { icon: "more_vert"; onClicked: {} }
+    
+    onNavigationClicked: { /* handle */ }
+}
+Tabs
+qml
+
+Tabs {
+    currentIndex: 0
+    scrollable: false
+    
+    Tab { text: "Tab 1"; icon: "home" }
+    Tab { text: "Tab 2" }
+    Tab { text: "Tab 3" }
+    
+    onTabClicked: function(index) { /* handle */ }
+}
+Breadcrumb
+qml
+
+Breadcrumb {
+    items: ["Home", "Products", "Electronics"]
+    
+    onItemClicked: function(index) { /* handle */ }
+}
+BottomSheet
+qml
+
+BottomSheet {
+    open: false
+    variant: "standard"    // standard | modal
+    showDragHandle: true
+    minHeight: 200
+    maxHeight: parent.height * 0.9
+    expandable: true
+    dismissible: true
+    
+    // Content goes here
+    
+    onClosed: { /* handle */ }
+    onExpanded: { /* handle */ }
+    onCollapsed: { /* handle */ }
+    
+    function show()
+    function close()
+    function expand()
+    function collapse()
+}
+Dialogs
+Dialog
+qml
+
+Dialog {
+    title: "Dialog Title"
+    supportingText: "Supporting text goes here"
+    icon: "info"
+    open: false
+    modal: true
+    closeOnOverlayClick: true
+    closeOnEscape: true
+    type: "basic"          // basic | fullscreen | assistant
+    size: "medium"         // small | medium | large
+    position: "center"     // center | top | bottom
+    confirmText: "Save"
+    showCloseButton: true
+    
+    content: Component { /* custom content */ }
+    
+    Button { text: "Cancel"; onClicked: dialog.reject() }
+    Button { text: "Save"; onClicked: dialog.accept() }
+    
+    onOpened: { /* handle */ }
+    onClosed: { /* handle */ }
+    onAccepted: { /* handle */ }
+    onRejected: { /* handle */ }
+    
+    function show()
+    function close()
+    function accept()
+    function reject()
+}
+AlertDialog
+qml
+
+AlertDialog {
+    title: "Alert"
+    message: "This is an alert message"
+    icon: "warning"
+    open: false
+    
+    onAccepted: { /* handle */ }
+}
+ConfirmDialog
+qml
+
+ConfirmDialog {
+    title: "Confirm"
+    message: "Are you sure?"
+    confirmText: "Yes"
+    cancelText: "No"
+    open: false
+    
+    onConfirmed: { /* handle */ }
+    onCancelled: { /* handle */ }
+}
+FullscreenDialog
+qml
+
+FullscreenDialog {
+    title: "Fullscreen"
+    confirmText: "Save"
+    open: false
+    
+    // Content
+    
+    onAccepted: { /* handle */ }
+    onRejected: { /* handle */ }
+}
+FileDialog
+qml
+
+FileDialog {
+    open: false
+    title: "Open File"
+    // Additional file dialog properties
+    
+    onAccepted: { /* handle */ }
+    onRejected: { /* handle */ }
+}
+Menus
+Menu
+qml
+
+Menu {
+    open: false
+    minWidth: 112
+    maxWidth: 264
+    variant: "expressive"  // expressive | compact
+    colorStyle: "standard" // standard | vibrant
+    density: "compact"
+    
+    MenuItem { text: "Copy"; leadingIcon: "content_copy"; trailingText: "Ctrl+C" }
+    MenuDivider {}
+    MenuItem { text: "Paste"; leadingIcon: "content_paste" }
+    
+    onClosed: { /* handle */ }
+    onItemClicked: function(index) { /* handle */ }
+    
+    function show()
+    function close()
+    function toggle()
+}
+MenuItem
+qml
+
+MenuItem {
+    text: "Menu Item"
+    leadingIcon: "settings"
+    trailingIcon: ""
+    trailingText: "Ctrl+S"
+    enabled: true
+    submenu: null          // array for submenu items
+    
+    onClicked: { /* handle */ }
+    onSubmenuRequested: function(title, items) { /* handle */ }
+}
+ContextMenu
+qml
+
+ContextMenu {
+    open: false
+    
+    MenuItem { text: "Cut" }
+    MenuItem { text: "Copy" }
+    MenuItem { text: "Paste" }
+    
+    function popup(x, y)
+}
+DropdownMenu
+qml
+
+DropdownMenu {
+    open: false
+    
+    MenuItem { text: "Option 1" }
+    MenuItem { text: "Option 2" }
+}
+Tooltip
+qml
+
+Tooltip {
+    text: "Tooltip text"
+    target: myButton
+    position: "bottom"     // top | bottom | left | right
+    delay: 500
+    showDuration: 1500
+    rich: false
+    
+    function show()
+    function hide()
+}
+Feedback
+Snackbar
+qml
+
+Snackbar {
+    text: "Action completed"
+    actionText: "Undo"
+    showClose: false
+    duration: 4000         // 0 = infinite
+    position: "bottom"     // bottom | top
+    multiLine: false
+    longerAction: false    // action on separate line
+    
+    onActionClicked: { /* handle */ }
+    onClosed: { /* handle */ }
+    
+    function show(message, action, closeable)
+    function hide()
+}
+Badge
+qml
+
+Badge {
+    text: "3"
+    variant: "small"       // small | large
+    enabled: true
+}
+Skeleton
+qml
+
+Skeleton {
+    width: 200
+    height: 20
+    radius: 4
+    animation: true
+}
+EmptyState
+qml
+
+EmptyState {
+    icon: "inbox"
+    title: "No items"
+    description: "Add items to get started"
+    
+    Button { text: "Add Item"; onClicked: {} }
+}
+CircularProgressIndicator
+qml
+
+CircularProgressIndicator {
+    progress: 0.0          // 0.0 - 1.0, determinate
+    indeterminate: true    // animating spinner
+    size: "medium"         // small | medium | large | xlarge
+    enabled: true
+    diameter: 40           // override
+    strokeWidth: 4
+    
+    // Center content slot
+    Text { text: "50%" }
+    
+    function setProgress(value)
+    function reset()
+    function complete()
+}
+LinearProgressIndicator
+qml
+
+LinearProgressIndicator {
+    progress: 0.0
+    indeterminate: false
+    trackThickness: 4
+    showStopIndicator: true
+    enabled: true
+    
+    function setProgress(value)
+    function reset()
+    function complete()
+}
+Containers
+Card
+qml
+
+Card {
+    variant: "elevated"    // elevated | filled | outlined
+    enabled: true
+    clickable: false
+    contentPadding: 16
+    cornerRadius: 12
+    
+    // Content goes here
+    
+    onClicked: { /* handle */ }
+    onPressAndHold: { /* handle */ }
+}
+Divider
+qml
+
+Divider {
+    orientation: "horizontal"  // horizontal | vertical
+    inset: 0
+    middleInset: 0
+}
+SideSheet
+qml
+
+SideSheet {
+    open: false
+    side: "right"          // left | right
+    
+    // Content
+    
+    onClosed: { /* handle */ }
+}
+Toolbar
+qml
+
+Toolbar {
+    ToolbarItem { icon: "undo"; onClicked: {} }
+    ToolbarSeparator {}
+    ToolbarToggleItem { icon: "format_bold"; checked: false }
+}
+Chips
+Chip
+qml
+
+Chip {
+    text: "Filter"
+    variant: "assist"      // assist | filter | suggestion | input
+    size: "medium"         // small | medium | large
+    leadingIcon: ""
+    trailingIcon: ""
+    selected: false        // for filter variant
+    enabled: true
+    elevated: false
+    
+    onClicked: { /* handle */ }
+    onTrailingIconClicked: { /* handle */ }  // usually "close" for input chips
+}
+ChipGroup
+qml
+
+ChipGroup {
+    chips: ["Tag 1", "Tag 2", "Tag 3"]
+    selectedChips: []
+    multiSelect: true
+    
+    onChipClicked: function(index) { /* handle */ }
+    onChipRemoved: function(index) { /* handle */ }
+}
+Lists
+ListItem
+qml
+
+ListItem {
+    text: "Primary text"
+    secondaryText: "Secondary text"
+    tertiaryText: "Tertiary text"
+    leadingIcon: "folder"
+    trailingIcon: "chevron_right"
+    trailingText: "3 items"
+    showAvatar: false
+    avatarSource: ""
+    avatarText: ""
+    showCheckbox: false
+    checked: false
+    showSwitch: false
+    switchChecked: false
+    showRadio: false
+    radioChecked: false
+    selected: false
+    enabled: true
+    size: "medium"         // small | medium | large
+    
+    onClicked: { /* handle */ }
+    onCheckboxToggled: function(checked) { /* handle */ }
+    onSwitchToggled: function(checked) { /* handle */ }
+    onRadioToggled: { /* handle */ }
+    onTrailingClicked: { /* handle */ }
+}
+SwipeListItem
+qml
+
+SwipeListItem {
+    text: "Swipeable item"
+    
+    // Swipe actions
+    leadingActions: [...]
+    trailingActions: [...]
+    
+    onClicked: { /* handle */ }
+}
+Data Display
+Avatar
+qml
+
+Avatar {
+    source: ""             // image URL/path
+    text: "JD"             // fallback initials
+    icon: ""               // fallback icon
+    size: "medium"         // xsmall | small | medium | large | xlarge
+    showBadge: false
+    badgeIcon: ""
+    online: false          // green indicator
+}
+AvatarGroup
+qml
+
+AvatarGroup {
+    avatars: [
+        { source: "user1.jpg", text: "JD" },
+        { source: "user2.jpg", text: "AB" }
+    ]
+    maxVisible: 4
+    size: "medium"
+}
+DataTable
+qml
+
+DataTable {
+    columns: [
+        { key: "name", label: "Name", width: 200, sortable: true },
+        { key: "email", label: "Email", width: 300 }
+    ]
+    rows: [
+        { name: "John", email: "john@example.com" },
+        { name: "Jane", email: "jane@example.com" }
+    ]
+    showCheckboxes: true
+    sortable: true
+    sortColumn: ""
+    sortAscending: true
+    selectedRows: []
+    stickyHeader: true
+    striped: false
+    hoverable: true
+    bordered: false
+    
+    onRowClicked: function(index, row) { /* handle */ }
+    onRowDoubleClicked: function(index, row) { /* handle */ }
+    onSelectionChanged: function(selectedRows) { /* handle */ }
+    onSortChanged: function(column, ascending) { /* handle */ }
+}
+TreeView
+qml
+
+TreeView {
+    model: treeModel
+    
+    onItemClicked: function(index) { /* handle */ }
+    onItemExpanded: function(index) { /* handle */ }
+}
+CodeBlock
+qml
+
+CodeBlock {
+    text: "console.log('hello')"
+    language: "javascript"
+    showCopy: true
+}
+Tag
+qml
+
+Tag {
+    text: "Important"
+    color: "primary"       // primary | secondary | error | success
+    icon: ""
+}
+Kbd
+qml
+
+Kbd {
+    text: "Ctrl"
+}
+IconLabel
+qml
+
+IconLabel {
+    icon: "info"
+    text: "Information"
+    spacing: 8
+}
+Search
+SearchBar
+qml
+
+SearchBar {
+    placeholder: "Search..."
+    value: ""
+    suggestions: []
+    showClear: true
+    
+    onSearch: function(query) { /* handle */ }
+    onSuggestionSelected: function(index) { /* handle */ }
+}
+Pickers
+DatePicker
+qml
+
+DatePicker {
+    selectedDate: new Date()
+    minDate: null
+    maxDate: null
+    open: false
+    
+    onDateSelected: function(date) { /* handle */ }
+}
+TimePicker
+qml
+
+TimePicker {
+    selectedTime: "12:00"
+    open: false
+    
+    onTimeSelected: function(time) { /* handle */ }
+}
+ColorPicker
+qml
+
+ColorPicker {
+    color: "#000000"
+    open: false
+    
+    onColorSelected: function(color) { /* handle */ }
+}
+Common
+Icon
+qml
+
+Icon {
+    source: "home"         // Material icon name, image path, or URL
+    size: 24
+    color: ChiTheme.colors.onSurface
+    filled: false
+}
+Application Window
+ChiApplicationWindow
+qml
+
+ChiApplicationWindow {
+    visible: true
+    width: 1200
+    height: 800
+    title: "My App"
+    
+    // Theme integration included
+}
+Icon System
+Chi uses Material Symbols Rounded font. Icons can be referenced by:
+
+Ligature name: "home", "settings", "search"
+Image path: "qrc:/icons/home.svg", "/path/to/icon.png"
+Common icons:
+
+Navigation: menu, arrow_back, arrow_forward, close, expand_more, chevron_right
+Actions: add, edit, delete, save, share, download, upload
+Media: play_arrow, pause, stop, skip_next, skip_previous
+Communication: mail, chat, notifications, send
+Files: folder, description, attachment, cloud
+User: person, account_circle, settings, logout
+Usage Patterns
+Basic App Structure
+qml
+
+import QtQuick
+import Chi 1.0
+
+ChiApplicationWindow {
+    visible: true
+    width: 1200
+    height: 800
+    title: "My App"
+    
+    TopAppBar {
+        id: appBar
+        title: "My App"
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+    }
+    
+    NavigationRail {
+        id: navRail
+        anchors.left: parent.left
+        anchors.top: appBar.bottom
+        anchors.bottom: parent.bottom
+        
+        items: ListModel {
+            ListElement { icon: "home"; label: "Home" }
+            ListElement { icon: "settings"; label: "Settings" }
+        }
+    }
+    
+    Item {
+        anchors.left: navRail.right
+        anchors.top: appBar.bottom
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        
+        // Page content
+    }
+}
+Theme Toggle
+qml
+
+IconButton {
+    icon: ChiTheme.isDarkMode ? "light_mode" : "dark_mode"
+    onClicked: ChiTheme.toggleDarkMode()
+}
+Form Example
+qml
+
+Card {
+    Column {
+        spacing: 16
+        
+        TextField {
+            width: parent.width
+            label: "Email"
+            placeholderText: "your@email.com"
+            leadingIcon: "mail"
+        }
+        
+        TextField {
+            width: parent.width
+            label: "Password"
+            password: true
+            showPasswordToggle: true
+            leadingIcon: "lock"
+        }
+        
+        Button {
+            text: "Sign In"
+            variant: "filled"
+            onClicked: submit()
+        }
+    }
+}
+List with Actions
+qml
+
+Column {
+    Repeater {
+        model: itemsModel
+        
+        ListItem {
+            width: parent.width
+            text: model.name
+            secondaryText: model.description
+            leadingIcon: model.icon
+            trailingIcon: "chevron_right"
+            onClicked: openItem(model.index)
+        }
+    }
+}
+File Structure
+text
+
+Chi/
+├── qml/Chi/
+│   ├── qmldir              # Module definition
+│   ├── theme/
+│   │   ├── ChiTheme.qml    # Theme singleton
+│   │   └── IconFont.qml    # Icon font loader
+│   └── ui/
+│       ├── Buttons/
+│       ├── chips/
+│       ├── containers/
+│       ├── data/
+│       ├── dialogs/
+│       ├── FAB/
+│       ├── feedback/
+│       ├── inputs/
+│       ├── lists/
+│       ├── menus/
+│       ├── navigation/
+│       ├── pickers/
+│       ├── progress/
+│       ├── search/
+│       ├── selection/
+│       ├── surfaces/
+│       ├── switches/
+│       └── system/
+├── assets/
+│   └── fonts/
+│       └── MaterialSymbolsRounded.ttf
+├── CMakeLists.txt
+└── README.md
+Dependencies
+Qt 6.5+
+Qt Quick
+Qt Quick Controls (Basic style)
+Qt Quick Effects (MultiEffect for shadows)
+Qt Quick Shapes (CircularProgressIndicator)
+Best Practices
+Always use ChiTheme tokens - Never hardcode colors or sizes
+Semantic variants - Use variant names that describe intent, not appearance
+Size consistency - Use consistent size scales across components in the same UI
+State handling - Let components manage their own visual states
+Accessibility - Components include A11y support; don't override
+Performance - Components use layer.enabled sparingly for effects
+Common Mistakes to Avoid
+Wrong import: Use import Chi 1.0 NOT import SmartUIBeta
+Hardcoded colors: Use ChiTheme.colors.primary instead of "#673AB7"
+Ignoring theme sync: Use ChiTheme functions to change theme, not direct property assignment
+Size mismatches: Keep button sizes consistent within button groups) i want you to make thorough research on a feature set of a modern terminal app, what makes them tick, to the most smallest details, what do normal users want, how helpful should they be, modern features like context menus, tabs, panes, how do we minimize the need for things like splitters and unnecessary bloat, a powerful minimal terminal but yet so powerful. what are the core modern features and the rise of ai tools, and modern tui requirements, desktop intergrations and much more
+Ask followup…
+
+Search
+
+Inputs are processed by third-party AI and responses may be inaccurate.
+
+Directly Chat with Frontier AI Search Models

@@ -18,10 +18,42 @@ Rectangle {
         visible: source !== ""
     }
 
+    // Background MouseArea for context menu
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        onClicked: function(mouse) {
+            contextMenu.popup(mouse.x, mouse.y)
+        }
+    }
+
+    // Context Menu using your custom component
+    ContextMenu {
+        id: contextMenu
+        
+        MenuItem {
+            text: "Choose Wallpaper"
+            onClicked: wallpaperDialog.open()
+        }
+    }
+
+    // File Dialog from Chi
+    FileDialog {
+        id: wallpaperDialog
+        title: "Choose Wallpaper"
+        mode: "open"
+        nameFilters: ["Image files (*.png *.jpg *.jpeg *.bmp *.webp *.svg)"]
+        
+        onAccepted: {
+            wallpaper.source = selectedFile
+        }
+    }
+
     // centered clock widget (MVP)
     Column {
         anchors.centerIn: parent
         spacing: 8
+        z: 1 // Ensure clock stays on top of the MouseArea
 
         Text {
             id: clockText

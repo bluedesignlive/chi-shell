@@ -1,0 +1,14 @@
+-I
+/home/lufuno/Documents/chi-shell/apps/shinobi/build
+-I
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/Shinobi
+-I
+/home/lufuno/Documents/chi-shell/apps/shinobi/build
+-I
+/usr/lib64/qt6/qml
+--resource
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/.qt/rcc/qmake_Shinobi.qrc
+--resource
+/home/lufuno/Documents/chi-shell/apps/shinobi/build/.qt/rcc/shinobi_raw_qml_0.qrc
+--module
+Shinobi

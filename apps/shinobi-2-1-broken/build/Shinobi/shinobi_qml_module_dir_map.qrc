@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/">
+    <file alias="/Shinobi">/home/lufuno/Documents/chi-shell/apps/shinobi/build/Shinobi</file>
+
+  </qresource>
+</RCC>

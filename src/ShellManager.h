@@ -14,6 +14,13 @@ class AppFilterModel;
 class PinnedAppsModel;
 class UnpinnedWindowsModel;
 class GroupedWindowsModel;
+class TrashManager;
+class WifiManager;
+class MprisController;
+class PowerProfileManager;
+class ScreenCapture;
+class NightLightManager;
+class PowerActions;
 
 class ShellManager : public QObject
 {
@@ -67,12 +74,20 @@ private:
     PinnedAppsModel       *m_pinnedApps         = nullptr;
     UnpinnedWindowsModel  *m_unpinnedWindows    = nullptr;
     GroupedWindowsModel   *m_groupedWindows     = nullptr;
+    TrashManager           *m_trashManager       = nullptr;
+    WifiManager           *m_wifiManager        = nullptr;
+    MprisController       *m_mprisController    = nullptr;
+    PowerProfileManager   *m_powerProfiles      = nullptr;
+    ScreenCapture         *m_screenCapture      = nullptr;
+    NightLightManager     *m_nightLight         = nullptr;
+    PowerActions          *m_powerActions       = nullptr;
 
     ShellSurface *m_desktop            = nullptr;
     ShellSurface *m_taskbar            = nullptr;
     ShellSurface *m_statusBar          = nullptr;
     ShellSurface *m_quickSettings      = nullptr;
     ShellSurface *m_notificationCenter = nullptr;
+    ShellSurface *m_notificationPopup  = nullptr;
     ShellSurface *m_appLauncher        = nullptr;
 
     bool m_quickSettingsOpen      = false;

@@ -1,13 +1,13 @@
 CMakeFiles/wlr_protocol.dir/wlr-foreign-toplevel-protocol.c.o: \
  /home/lufuno/Documents/chi-shell/build/wlr-foreign-toplevel-protocol.c \
  /usr/include/stdc-predef.h \
- /usr/lib/gcc/x86_64-redhat-linux/15/include/stdbool.h \
+ /usr/lib/gcc/x86_64-unknown-linux-gnu/14.2/include/stdbool.h \
  /usr/include/stdlib.h /usr/include/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
  /usr/include/bits/wordsize.h /usr/include/bits/timesize.h \
  /usr/include/sys/cdefs.h /usr/include/bits/long-double.h \
  /usr/include/gnu/stubs.h /usr/include/gnu/stubs-64.h \
- /usr/lib/gcc/x86_64-redhat-linux/15/include/stddef.h \
+ /usr/lib/gcc/x86_64-unknown-linux-gnu/14.2/include/stddef.h \
  /usr/include/bits/waitflags.h /usr/include/bits/waitstatus.h \
  /usr/include/bits/floatn.h /usr/include/bits/floatn-common.h \
  /usr/include/sys/types.h /usr/include/bits/types.h \
@@ -26,7 +26,7 @@ CMakeFiles/wlr_protocol.dir/wlr-foreign-toplevel-protocol.c.o: \
  /usr/include/bits/atomic_wide_counter.h /usr/include/bits/struct_mutex.h \
  /usr/include/bits/struct_rwlock.h /usr/include/alloca.h \
  /usr/include/bits/stdlib-float.h \
- /usr/lib/gcc/x86_64-redhat-linux/15/include/stdint.h \
+ /usr/lib/gcc/x86_64-unknown-linux-gnu/14.2/include/stdint.h \
  /usr/include/stdint.h /usr/include/bits/wchar.h \
  /usr/include/bits/stdint-uintn.h /usr/include/bits/stdint-least.h \
  /usr/include/wayland-util.h /usr/include/math.h \
@@ -34,6 +34,5 @@ CMakeFiles/wlr_protocol.dir/wlr-foreign-toplevel-protocol.c.o: \
  /usr/include/bits/flt-eval-method.h /usr/include/bits/fp-logb.h \
  /usr/include/bits/fp-fast.h /usr/include/bits/mathcalls-macros.h \
  /usr/include/bits/mathcalls-helper-functions.h \
- /usr/include/bits/mathcalls.h /usr/include/bits/mathcalls-narrow.h \
- /usr/include/bits/iscanonical.h /usr/include/inttypes.h \
- /usr/lib/gcc/x86_64-redhat-linux/15/include/stdarg.h
+ /usr/include/bits/mathcalls.h /usr/include/inttypes.h \
+ /usr/lib/gcc/x86_64-unknown-linux-gnu/14.2/include/stdarg.h

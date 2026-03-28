@@ -1,0 +1,8 @@
+module Shinobi
+prefer :/Shinobi/
+Main 1.0 qml/Main.qml
+TerminalTabBar 1.0 qml/TerminalTabBar.qml
+TerminalPane 1.0 qml/TerminalPane.qml
+TerminalStatusBar 1.0 qml/TerminalStatusBar.qml
+depends QtQuick
+

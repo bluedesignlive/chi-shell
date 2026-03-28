@@ -1,0 +1,237 @@
+The user wants me to:
+
+Reorganize the project structure - Separate statusbar logic into proper subdirectories in both qml/ and src/
+Create a proper spec file (RPM .spec)
+Fix SystemStatus - The nmcli wifi detection is lying, UPower fires on desktop PCs with no battery, make it production-quality
+Implement MPRIS media controls
+Implement power profiles
+Make everything professional and clean
+Let me think about the ideal project structure:
+
+
+
+chi-shell/
+├── CMakeLists.txt
+├── chi-shell.spec
+├── dbus/
+│   └── org.freedesktop.Notifications.xml
+├── protocols/
+│   └── wlr-foreign-toplevel-management-unstable-v1.xml
+├── fonts/
+├── plugins/
+├── src/
+│   ├── main.cpp
+│   ├── core/
+│   │   ├── ShellManager.h/.cpp
+│   │   ├── ShellSurface.h/.cpp
+│   │   └── WayfireIPC.h/.cpp
+Laying out the directory structure with core components, dbus interfaces, and protocol definitions organized at the top level.
+
+Now I'm mapping out the models layer with data structures for desktop entries, pinned apps, and window tracking, plus a statusbar subsystem that coordinates various system providers—battery through UPower, network via NetworkManager's D-Bus interface, Bluetooth through BlueZ, and audio from PulseAudio.
+
+Continuing with the remaining providers... Now I'm identifying the key fixes needed for the providers. The NetworkProvider should switch from unreliable nmcli calls to direct D-Bus communication with NetworkManager to fetch the SSID and signal strength. For BatteryProvider, I need to handle systems without a battery gracefully by checking if the DisplayDevice exists and has the right type, then disabling battery UI entirely if it's not present, while also watching for device changes in case of laptop docking scenarios.
+
+For AudioProvider, I'm reconsidering the approach—pactl actually works fine for audio, so the real problem is just the NetworkManager integration. I'll stick with pactl but improve error handling, or use PipeWire/PulseAudio's D-Bus interface if available as a fallback.
+
+Now I'm mapping out the full feature set: NetworkManager needs pure D-Bus instead of nmcli, battery handling should gracefully handle missing devices, and I want to add MPRIS for media controls and power profiles for performance modes. Let me start implementing these.
+
+For the D-Bus approach to NetworkManager, I'm querying the primary connection object to extract the network type, then drilling down through the device hierarchy to get the SSID and signal strength from the active access point. me think about this more carefully. The NetworkManager D-Bus API gives me access to wireless status through properties like Ssid, Strength, and connection state across the object hierarchy.
+
+For audio, I'm weighing the options between pactl for simplicity and cross-distro compatibility with both PulseAudio and PipeWire, versus the more complex but native approaches like libpulse or WirePlumber's D-Bus API. I think sticking with pactl makes the most sense here—it's reliable and widely supported.
+
+Actually, I should move away from polling entirely. Instead of repeatedly calling pactl, I can subscribe to PulseAudio events directly, which gives me real-time updates whenever volume or mute state changes. I'll grab the initial state with a single pactl call, then listen for changes through the subscription mechanism.
+
+Now I'm ready to structure the full implementation. I need to lay out the project organization, update the build configuration, and write out all the provider modules that handle network, battery, and audio status, plus a coordinator that manages them all together. I'm laying out all the files I need to create for this statusbar system, and now I'm diving into the implementation details. The NetworkProvider is the first major piece—I'm switching from the unreliable nmcli approach to pure D-Bus calls, which will give me direct access to NetworkManager's state without the timing issues that come from spawning external processes and parsing their output.
+
+I'm working through the D-Bus API structure now, mapping out the properties and interfaces I need to query—ActiveConnections as an array of object paths, the wireless enabled state, and the overall network state, then drilling into each connection's details through the Active interface. to changes without polling. For the battery provider, I need to handle cases where no battery exists—I'll check if the device's Type property is 2 and IsPresent is true, or better yet, enumerate UPower devices looking for one with Type==2 to determine if a battery is actually available. For audio, instead of polling I can subscribe to PulseAudio's change events by running pactl subscribe as a background process and parsing its output stream.
+
+The MPRIS controller will list and watch for media player bus names, track the active player, expose playback controls, and listen for property changes. The power profile provider is straightforward—just read and write the ActiveProfile property on the D-Bus service. Now I'm going to write all this code, though this is going to be quite substantial.
+
+I should organize the response clearly with a project structure, then go through each file, the build configuration, and the RPM spec. I'll make sure the code is production-ready.
+
+For the spec file, I need to account for Qt6 dependencies, LayerShellQt, Wayland protocols, and D-Bus. Then I'll need to update the QML files—moving them into subdirectories, wiring up the new providers through SystemStatus, and adding the MPRIS media player integration.
+
+Now I'm realizing the directory structure needs to be more deliberate: QML files should live in qml/statusbar/ and qml/quicksettings/, while the C++ providers go in src/statusbar/. The ShellManager's qmlPath() function will need to handle these subdirectories properly so the QML import paths resolve correctly.
+
+The tricky part is that components in statusbar/ need to reference shared components elsewhere, like Icon.qml in the root qml/ directory. I'll use relative imports to keep it simple—so StatusBar.qml would import from ../components/ to access shared assets. the QML structure:
+
+
+
+qml/
+├── Desktop.qml
+├── Taskbar.qml
+├── AppLauncher.qml
+├── NotificationCenter.qml
+├── components/
+│   ├── Icon.qml
+│   ├── qmldir
+│   └── ChiTheme/ (singleton)
+├── statusbar/
+│   ├── StatusBar.qml
+│   ├── StatusIcons.qml
+│   └── qmldir
+└── quicksettings/
+    ├── QuickSettings.qml
+    ├── SettingsTile.qml
+    ├── BrightnessSlider.qml
+    ├── VolumeSlider.qml
+    ├── MediaPlayerWidget.qml
+    ├── TileGrid.qml
+    └── qmldir
+I'm thinking through the import strategy here. The formal approach with qmldir files and registered import paths would work, but it's adding complexity I don't need right now. Instead, I'll stick with the simpler qmlPath() function that handles subdirectories directly, and use relative imports within the QML files themselves where needed. Continuing with the rest of the directory structure for notifications, models, and other modules... Now I'm outlining the implementation strategy for each provider component—SystemStatus will act as a coordinator, NetworkProvider will use pure D-Bus calls, BatteryProvider needs graceful fallbacks, and I'm adding new controllers for MPRIS and power profiles while updating the shell manager and build configuration. Writing the NetworkProvider D-Bus implementation... Querying the active connections from NetworkManager and iterating through them to find the WiFi connection details... Querying the access point properties to extract the SSID and signal strength...
+
+Actually, I'm making too many individual D-Bus calls here—this is inefficient. I should batch these queries together using GetAll instead, and more importantly, I need to switch to an event-driven approach by listening to NetworkManager's StateChanged and PropertiesChanged signals rather than polling constantly.
+
+Let me step back though. The user's polling approach at 15-second intervals is working fine, so I shouldn't over-complicate this. I'll focus on the actual bugs: switching Network to use D-Bus directly instead of nmcli, handling the no-battery case, and keeping the same polling structure. Then I can add the new features like MPRIS with proper signal-based updates and Power Profiles via D-Bus properties.
+
+For the event-driven parts, I need to identify which D-Bus signals matter most—NetworkManager's state and properties changes are the key ones to hook into. I'm getting ahead of myself with all this planning—let me just start writing the actual implementation files. I need to structure the CMakeLists.txt to handle the subdirectories in src/, and then build out the QML interface according to the design spec the user provided: status bar at the top, brightness and volume sliders, a grid of tiles with different variants, the media player widget with album art, and footer controls with pagination support. the logic for the statusbar on qml/ dir and src/". They want the statusbar-related code separated into its own subdirectory. Let me not overthink the other directories and focus on what they asked.
+
+So I'm organizing the source tree with core functionality like shell management and IPC in a dedicated core folder, then grouping all statusbar providers together—battery, network, bluetooth, audio, brightness, MPRIS, and power profiles. I'll also create separate directories for notifications, data models, desktop features like trash management, and custom providers for icons and window thumbnails. On the QML side, I'm laying out the UI components for the desktop, taskbar, app launcher, and notification center.
+
+Now I'm thinking through the NetworkProvider implementation, which needs to handle several scenarios: gracefully falling back when NetworkManager isn't running, distinguishing between wired and wireless connections, displaying WiFi SSIDs and signal strength, and handling the case where WiFi is available but not connected.
+
+The key insight is that using D-Bus directly instead of nmcli will give me more reliable data and better error handling for each call. I also need to add ethernet support since users might be connected via wired connection, which means tracking whether the connection is ethernet or WiFi and exposing properties like available, wifiEnabled, and connection status accordingly.
+
+Now I'm planning out the actual implementation files I'll need to write.
+
+Writing the RPM spec file... I'm deciding between adding subdirectories as include paths in CMakeLists.txt versus using explicit relative paths in includes—the include directories approach will minimize changes to existing code. Now I'm sketching out the MPRIS controller implementation...
+
+Defining the Qt properties... Setting up D-Bus connections to discover and monitor media players...
+
+For the audio provider, I'm considering using pactl subscribe for event-driven updates instead of polling, though that means maintaining a persistent background process. Let me think through the tradeoffs here...
+
+Actually, event-driven is better for production quality—I'll implement the subscription approach where I parse output lines indicating sink or source changes, then query the actual volume and mute state when those events fire. This is cleaner than constant polling.
+
+But wait, I'm overthinking this. The real issues are elsewhere: the network provider isn't detecting connected state properly (needs D-Bus instead of nmcli), battery polling fails on systems without batteries, and MPRIS definitely needs event-driven updates since media state changes constantly. For audio, polling every 5 seconds is fine given the overhead is negligible. Let me be pragmatic about where to invest effort—use D-Bus with signals for network and battery, keep audio on a faster poll cycle, and make sure MPRIS is fully event-driven since that's where the frequent state changes actually happen.
+
+I'll also bump the backup poll interval to 30 seconds to reduce unnecessary checks. Now I need to decide on the architecture: should I keep SystemStatus as a single facade that QML talks to, or expose each provider separately? Keeping it as a facade makes sense—QML just calls systemStatus.batteryPercent or systemStatus.wifiSSID and doesn't need to know about the internal provider structure. I'll expose the MPRIS controller separately though since it has enough properties and methods to warrant its own context property.
+
+For the context properties, I'm settling on systemStatus for the main facade and mprisController at the top level rather than nesting it deeply, since QML handles flat properties better. Now I need to think through the component discovery—if I move QuickSettings.qml and SettingsTile.qml into qml/quicksettings/, they'll find each other in the same directory, but I should verify the import paths work correctly.
+
+For Icon and ChiTheme, I'm considering whether to add import paths in C++ so subdirectories can reference shared components cleanly, though I need to figure out the right approach for QML module imports.
+
+The cleanest solution is to set up proper qmldir files in each directory—one for the components module that exports ChiTheme as a singleton and Icon, and another for the quicksettings module with its tile components. Then any QML file can simply import these modules by name.
+
+Looking at the existing setup, they're already using import Chi 1.0, which means the engine's import path is configured to find qml/Chi/qmldir. So the components are likely already in qml/Chi/ and I just need to verify the qmldir file is properly set up there.
+
+Since the engine has qml/ as a global import path, any QML file anywhere can use import Chi 1.0 to access shared components like Icon and ChiTheme. My approach is to keep that same import pattern for the new subdirectories—qml/statusbar/StatusBar.qml and qml/quicksettings/QuickSettings.qml will both reference the Chi module the same way.
+
+For files within the same subdirectory like qml/quicksettings/, they can reference each other directly by type name since QML resolves types relative to the importing file's directory. So QuickSettings.qml can use SettingsTile {} if SettingsTile.qml is in the same folder.
+
+Now I'm ready to write the implementation, though I should also make sure the Fedora spec file follows proper conventions. I'm settling on the Fedora package names: layer-shell-qt-devel for the Layer Shell Qt library and wayland-devel plus wayland-protocols-devel for the Wayland dependencies. Now I'll write out the implementation, starting with the NetworkProvider class that handles D-Bus communication directly without relying on nmcli, carefully managing the D-Bus type conversions for the active connections data.
+
+Writing the NetworkProvider implementation... Querying the active connections through DBus to extract the SSID and signal strength information... Continuing with the D-Bus calls... Extracting the SSID from the D-Bus reply and converting it to a string, then making another D-Bus call to retrieve the signal strength property from the access point. I'm checking if any of the network state values have changed, and if so, I'm updating the member variables and emitting a signal to notify listeners. Now I'm refactoring this to extract the D-Bus property retrieval into a helper method to reduce duplication.
+
+Setting up D-Bus signal connections... Writing the BatteryProvider implementation... Writing the UPower initialization... Setting up the D-Bus signal connection to listen for property changes on the display device so I get real-time battery updates instead of polling.
+
+Now I'm planning out which files need to be created or modified—the NetworkProvider and BatteryProvider classes are the priority, and I'll provide complete, compilable code for each. I'm mapping out the remaining QML components I need to create—the quick settings panel with sliders for brightness and volume, a new media player widget, plus updates to the build configuration and spec file. That brings the total to 17 files, though I'm leaving the core UI components like Desktop, Taskbar, and AppLauncher untouched since the user didn't ask for changes there.
+
+Now I need to make sure ShellManager exposes the right objects and paths for these new components, while keeping the existing backend services like NotificationServer, WindowTracker, and DesktopEntryModel as they are. The real focus here is organizing everything cleanly into subdirectories so the project stays maintainable—fixing the nmcli and upower issues, setting up proper RPM packaging, and making sure each file lives in its logical place. I'm laying out the full directory structure with all the modules organized by function—core shell logic, Wayland integration, status monitoring, and UI components all in their proper places. I'm mapping out the rest of the directory structure with models for desktop entries and pinned apps, a notification server implementation, trash management utilities, and icon providers. Now I'm moving on to write the build configuration and packaging files, starting with the CMakeLists.txt to set up the project structure and dependencies, then the RPM spec file for distribution. Now I'm listing the recommended packages for system integration like NetworkManager and audio services, then describing what Chi Shell is—a Material You-inspired Wayland shell for Wayfire with a status bar, taskbar, settings panel, and launcher. The build section uses CMake to compile and install the project, placing the binary and data files in the appropriate system directories.
+
+I need to be more precise about what files get installed, including the desktop entry for the Wayland session. For the audio provider, I'm considering whether to use pactl commands for volume and mute control, or switch to libpulse or PipeWire's API directly for better reliability—though pactl works fine with both backends for now. I could also set up a subscription listener to monitor audio changes in real time rather than polling repeatedly.
+
+Setting up the monitor process... I need to add error handling for cases where pactl isn't available or PulseAudio isn't running. For brightness control, I should switch from brightnessctl to the logind D-Bus API since it's more reliable and doesn't require root privileges on systemd systems.
+
+Writing the brightness setter... I'm getting into the implementation details of querying the session path from logind using D-Bus, but I realize I'm overthinking this. Let me just write out all the files I need and stop second-guessing myself.
+
+Before I dive in, I should clarify what's actually essential versus what would be nice to have. The user specifically asked for the directory restructure, switching from nmcli to pure D-Bus for networking, fixing the UPower battery detection on desktop, the RPM spec file, and updated build configuration. Beyond that, the media player support and power profiles are valuable additions they mentioned. Everything else like system tray integration, night light, and airplane mode can wait for another iteration.
+
+I'll focus on delivering those seven items completely, keeping the audio implementation straightforward with a dedicated provider class and polling, and handling brightness through sysfs with a logind fallback. Now I'm ready to write the actual code—I'll organize it as the full project structure, then C++ files, QML files, the build configuration, and the spec file.
+
+I'm estimating around 2000 lines total across all the providers, core components, and UI files, which should fit comfortably. I'll be concise with explanations but thorough with the implementation, combining header and source for simpler files where it makes sense.
+
+For the D-Bus property handling, I'll create a small utility helper...
+
+Writing DBusHelper utility... Completing the helper functions...
+
+Now I'm realizing I need to set up the QML imports properly for any subdirectory files, so they can access these utilities without path issues. The engine's import paths include the project's qml/ directory, so import Chi 1.0 will correctly resolve to qml/Chi/qmldir, and types in the same directory as a loaded QML file are automatically discovered, meaning SettingsTile.qml will be available as a type next to QuickSettings.qml. Now I need to write out the complete CMakeLists.txt configuration for the project, starting from scratch since I don't have the existing file.
+
+Writing CMake configuration... Generating Wayland protocol code... Continuing to list out the remaining source files for the executable, then setting up the target with its include directories...
+
+Now I'm configuring the link libraries, pulling in Qt6 modules along with Wayland and LayerShell dependencies, and finally setting up the installation rules to place the binary and associated resources like QML files and fonts into the appropriate system directories.
+
+I'm reconsidering how the D-Bus adaptor generation should work—the qt6_add_dbus_adaptor function needs the correct path to the NotificationServer header and the proper class name, so I should verify the syntax is right.
+
+Configuring D-Bus adaptor generation... I'm settling on using just NotificationServer.h as the header parameter since src/notifications is already in the include path, which should make the generated #include directive work correctly. Now I need to write out the complete CMakeLists.txt and then move on to implementing the actual C++ code—starting with the providers, then the SystemStatus coordinator that will act as a facade to expose a stable API for QML, and finally the shell manager and QML integration.
+
+Defining the SystemStatus class properties... Continuing with the Qt property declarations for brightness, power profiles, and do-not-disturb settings, then wrapping up the class with getters, setters, and signal definitions.
+
+The implementation delegates each property accessor to the appropriate internal provider object—so batteryPercent() calls through to the battery provider, wifiConnected() queries the network provider, and so on. This keeps the QML interface clean and stable while the backend stays modular.
+
+Now I'm ready to write out the complete files. Before I do, I need to verify the D-Bus signal connection for PropertiesChanged—it passes the interface name, a map of changed properties, and a list of invalidated properties, so I'll make sure my slot signatures match that contract when hooking up the system bus connections.
+
+Writing the implementation files...
+
+I need to expose the MPRIS controller to QML as a context property so the UI can bind to player state like title, artist, and visibility. I'm also reconsidering how to properly handle the SpecificObject property from NetworkManager for WiFi connections, since it represents the access point path but might be empty in some cases.
+
+A more reliable approach is to traverse through the active connection's devices to find the wireless device, then grab its active access point to get the SSID and signal strength. I'm implementing this by querying the Devices property from the active connection, extracting the device paths, and then accessing the wireless interface's ActiveAccessPoint property.
+
+Fetching device paths and access point details... I'm extracting the SSID and signal strength from the active access point by querying its properties through DBus, then I need to handle the MPRIS album art URL which can be a local file path or remote URL—QML's Image element handles both formats natively so I just pass it through. Now I'm ready to write out the full implementation, starting with the PowerProfileProvider class.
+
+Writing PowerProfileProvider implementation... I need to handle the DBus signal connection for property changes, then implement a polling method that reads the active profile from the system bus and emits a change signal if it differs from what we're tracking. For the available profiles, I'll just hardcode the standard ones since the power-profiles-daemon typically uses a fixed set. Finishing up the Profiles parsing. Now for the MPRIS controller—I need to handle multiple media players and track which one is active, preferring the one that's currently playing. I'll scan for available players on startup, watch for new ones appearing or disappearing, monitor property changes on the active player, and expose its metadata and playback controls.
+
+Writing the controller class... Now I'm setting up the private implementation details—handling D-Bus signals when players appear or disappear, tracking property changes, and managing the active player selection along with caching the metadata and playback state.
+
+I'm writing helper methods to extract the player name from the D-Bus service name and map it to an appropriate icon, either by parsing the desktop entry or using a lookup table for common players.
+
+Now I'm thinking through the dependency structure to ensure everything compiles correctly—ShellManager ties together most of the system components like the IPC layer, window tracking, notifications, media controls, and various providers, while SystemStatus aggregates all the hardware and system state providers.
+
+Writing the include structure... I'm checking which properties the QML is actually using from systemStatus and ChiTheme — things like battery indicators, network icons, brightness and volume sliders, and various toggle tiles — and I'm adding a hasBattery property to conditionally display the battery section.
+
+Now I'm looking at the additional properties I need to expose: ethernet connection status, brightness availability, power profile settings with icons, and media player controls including playback state, track metadata, and navigation functions.
+
+Writing the QML implementation...
+
+Actually, I should add D-Bus signal connections for real-time updates instead of polling every 15 seconds—connecting to NetworkManager's StateChanged and PropertiesChanged signals, plus similar connections for Bluetooth and battery status. This way the UI responds immediately when the user connects to wifi or changes settings, which is much more polished.
+
+Let me finalize the implementation by creating the necessary helper utilities and QML files. I've got the remaining QML components and configuration files to write out—the quick settings tiles, sliders, media player widget, and build files. I'm going to push through and write all of them without stopping. I should also verify that src/main.cpp doesn't need changes since the include path for ShellManager.h stays the same with the new src/core directory in the include paths.
+
+Now I'm looking at the SettingsTile design—it needs to support two variants: a wide half-width tile with icon, title, and subtitle that changes color when active, and a compact quarter-width circular tile with just an icon. I'll build the component to handle both layouts with the appropriate styling from the design spec. I need to create the SettingsTile component from scratch since I don't have access to the existing file. Looking at how it's used in QuickSettings, I can see it needs properties for the icon, title, description, active state, and a wide/round variant toggle, plus a clicked signal to handle state changes.
+
+Writing the component... Writing the component layout... Writing the interaction layer...
+
+Now I'm moving on to the MediaPlayerWidget implementation. I need to build out the full card layout with the album art background, scrim overlay for text readability, and all the controls positioned on top—the header with app icon and output selector, the playback details with title and artist, the play/pause button, and the scrubber controls at the bottom. Building the content layout... Building the main content area with a column layout that displays the media title and additional details below it. Building the controls row... Writing the next button component...
+
+Now I'm thinking through the package dependencies for Fedora — I need to make sure I have the right Qt6 development packages listed, particularly the base libraries for core functionality, declarative UI components, and DBus integration for the MPRIS interface. I'm realizing that RPM's automatic dependency generator will handle most of the Qt library requirements, so I mainly need to explicitly specify wayfire and optional dependencies like NetworkManager. The tricky part is getting the exact package name for layer-shell-qt on Fedora—it might be under the KDE Frameworks 6 namespace as kf6-layer-shell-qt-devel, so I'll need to verify that before finalizing the spec file. the explicit package name since it's clearer. Now I'm putting together the final response, making sure to cover the main points comprehensively. I'm also thinking through some edge cases that could come up—like what happens if there are multiple Bluetooth adapters instead of just the hardcoded hci0, or if there's no backlight device on a desktop system. For the Bluetooth adapter discovery, I should enumerate available adapters dynamically rather than assuming a fixed path, and I'm sketching out how to query the BlueZ ObjectManager to find the right adapter.
+
+Discovering adapters dynamically... I'm going to keep the ShellManager changes minimal—just adding the include for MprisController, creating the member variable, initializing it, registering it as a context property, and updating the QML paths rather than rewriting the whole class.
+
+For the architecture, I'm settling on keeping SystemStatus and MprisController separate since MPRIS is conceptually distinct from system metrics like battery and network, and it has enough properties and methods that it makes sense as its own entity. Both will be created and managed by ShellManager, which keeps things clean.
+
+On the audio updates, I'm going to stick with polling every 15 seconds rather than adding event-driven complexity. User-initiated volume changes through the quick settings slider update immediately anyway, and 15 seconds is acceptable for catching external changes from other apps. I'll just make sure the provider code is clean and straightforward.
+
+Now I'm ready to start writing the actual implementation. I'm continuing through the remaining provider implementations and core components, estimating around 35 to 200 lines each for the brightness, MPRIS, power profile, and system status modules, then wrapping up with updates to the shell manager.
+
+Now I'm looking at the QML interface files for the status bar and quick settings panel, along with individual slider and media player widgets, plus the build configuration and package specification files—all told, this comes to roughly 2400 lines of code across the entire project.
+
+I should consolidate where it makes sense, particularly for smaller components, though keeping headers and implementations separate is the right call for maintainability. The providers all follow a consistent pattern with poll() methods, changed() signals, and property getters, while the SystemStatus coordinator orchestrates everything by managing a shared timer that triggers polling across all providers and relays their signals.
+
+The key architectural decision I'm settling on is whether to give each provider its own timer or have SystemStatus manage a single shared timer that calls all providers—I'm leaning toward the shared approach for efficiency.
+
+Actually, I'm realizing that polling needs vary significantly across providers. Some like Battery, Network, and Bluetooth have D-Bus signals that handle most updates, so polling is just a fallback mechanism. Audio and Brightness don't have D-Bus signals available, so they rely on polling as their primary update path. This means the shared timer mainly serves three purposes: getting initial state, providing the primary update mechanism for Audio and Brightness, and acting as a safety net for the signal-based providers.
+
+I'll set up a 15-second backup poll that runs for all providers, but the ones with D-Bus signals will also push updates immediately when those signals fire. Now I'm setting up the D-Bus signal connections for NetworkProvider, defining the slot signatures to match what the signals expect and wiring up the connections to the system bus.
+
+Setting up D-Bus signal handlers...
+
+Now I'm ready to write out the actual implementation. I'll go through each file systematically with clear headers, keeping the code focused and letting it do the talking. I also need to handle the brightness provider more gracefully on desktop systems that don't have a backlight device, and I'll add proper error handling throughout to make this production-ready.
+
+The user's original issue about the WiFi connection not showing up was because nmcli dev wifi list with --wait 0 only lists available networks, not the active connection status. Using D-Bus directly is much better here—no subprocess overhead, no fragile text parsing, and I can subscribe to change signals for real-time updates.
+
+Now I'm updating the ShellManager to integrate the MprisController. I need to add forward declarations, create the member variable, instantiate it in initialize(), register its context properties, and update the QML paths to reflect the new directory structure where StatusBar moves into a statusbar subdirectory.
+
+The qmlPath() function already handles locating files in both build and installed directories, so no changes needed there. I'm keeping the providers as separate files for clarity and maintainability rather than combining them. Now I'll put together the full response with the complete project structure showing both existing files being reorganized and the new additions. I'm continuing to map out the reorganized structure, moving more files into the wayland subdirectory and setting up a new statusbar module with helper utilities for system monitoring—DBus integration, battery tracking, and network status providers. I'm organizing the remaining model classes, notification handling, desktop utilities, and icon provider infrastructure by moving them into their respective subdirectories within the core module structure. Now I'm mapping out the quick settings reorganization—moving QuickSettings and SettingsTile from the root qml folder into a dedicated quicksettings subdirectory, while extracting the brightness and volume controls into their own reusable components, plus adding a new media player widget.
+
+Since I'm using target_include_directories to make all subdirectories available as include paths, the moved C++ files won't need their #include statements updated—just the CMakeLists.txt source paths need adjusting.
+
+I need to provide the new and rewritten QML files, update the CMakeLists.txt and spec file, show the directory structure, and then figure out how to handle the hasBrightness property on desktop systems where brightness control might not be available. might be no backlight device. The brightness slider should be hidden.
+
+And hasPowerProfiles - if power-profiles-daemon isn't installed, the tile should be hidden.
+
+And hasBattery - if no battery, the battery indicator should be hidden.
+
+These are important for the "production level" goal - the shell should work correctly on both laptops and desktops.
+
+In the QML, I'll use visible: systemStatus.hasBattery for battery indicators, visible: systemStatus.hasBrightness for the brightness slider, etc.
+
+OK, so the QML files in qml/quicksettings/ are loaded through ShellSurface which instantiates a QQuickView or QQmlComponent, with QuickSettings.qml as the root file. It references SettingsTile, BrightnessSlider, VolumeSlider, and MediaPlayerWidget - all in the same directory so QML auto-discovers them as types. And import Chi 1.0 works because qml/ is registered as an import path with qml/Chi/qmldir present.
